@@ -1,0 +1,9 @@
+*
+!*/
+!/.gitignore
+!/setup.py
+!/pyproject.toml
+!/setup.cfg
+!/Makefile
+!/app/**/*.py
+!/test/**/*.py
