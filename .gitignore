@@ -7,3 +7,4 @@
 !/Makefile
 !/app/**/*.py
 !/test/**/*.py
+!/tasks/**/*.py

@@ -15,6 +15,10 @@ class Collate:
         n_max_value_length: int,
     ):
         self.token_encoder = LabelEncoder(["<CLS>"] + tokens)
+        self.value_encoder = LabelEncoder(
+            [True, False, 0] + list(range(1, max_value + 1)) +
+            [-v for v in range(1, max_value + 1)]
+        )
         self.max_value = max_value
         self.n_max_token_length = n_max_token_length
         self.n_max_value_length = n_max_value_length
@@ -27,8 +31,7 @@ class Collate:
         batched_output = []
         for sample in batch:
             tokens = self.parser.unparse(sample.program).split(" ")
-            tokens = ["<CLS>"] + tokens
-            tokens = tokens[:self.n_max_token_length]
+            tokens = ["<CLS>"] + tokens[:self.n_max_token_length]
             code = self.token_encoder.batch_encode(tokens)
             for example in sample.examples:
                 inputs = example.inputs[:self.n_max_value_length]
@@ -53,4 +56,5 @@ class Collate:
         input_mask = torch.zeros(input.shape[0], input.shape[1], dtype=torch.bool)
         for i in range(len(batched_input)):
             input_mask[:len(batched_input[i]), i] = True
-        return code, code_mask, input, input_mask, batched_output, len(batch)
+        output = self.value_encoder.batch_encode(batched_output)
+        return code, code_mask, input, input_mask, output, len(batch)

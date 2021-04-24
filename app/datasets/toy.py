@@ -329,7 +329,7 @@ class RandomDataset(torch.utils.data.IterableDataset):
 
             def _gen_input(self, p: Program) -> List[int]:
                 x: List[int] = rng.randint(
-                    0, self.parent.max_int + 1, p.n_input
+                    -(self.parent.max_int + 1), self.parent.max_int + 1, p.n_input
                 ).tolist()
                 return x
 
@@ -367,7 +367,14 @@ class RandomDataset(torch.utils.data.IterableDataset):
                     n_sample = rng.randint(1, self.parent.max_sample + 1)
                     inputs = [self._gen_input(p) for _ in range(n_sample)]
                     outs = [self.parent.interpreter.run(p, input) for input in inputs]
-                    if any([out is None for out in outs]):
+
+                    def cond(x):
+                        if x is None:
+                            return True
+                        else:
+                            return abs(x) <= self.parent.max_int
+
+                    if any([cond(out) for out in outs]):
                         continue
                     samples = [Example(input, out) for input, out in zip(inputs, outs)]
                     return Sample(p, samples)

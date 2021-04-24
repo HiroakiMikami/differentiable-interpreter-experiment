@@ -34,8 +34,8 @@ class Module(torch.nn.Module):
         n_max_input_length: int, value_embedding: torch.nn.Module,
     ):
         super().__init__()
-        self.token_pos_enc = PositionalEncoder(C, n_max_token_length)
-        self.input_pos_enc = PositionalEncoder(C, n_max_input_length)
+        self.token_pos_enc = PositionalEncoder(C, n_max_token_length + 1)
+        self.input_pos_enc = PositionalEncoder(C, n_max_input_length + 1)
         self.token_embedding = torch.nn.Embedding(n_token, C)
         self.value_embedding = value_embedding
         self.token_encoder = torch.nn.TransformerEncoder(
