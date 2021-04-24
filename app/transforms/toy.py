@@ -24,6 +24,7 @@ class Collate:
         # transform
         batched_code = []
         batched_input = []
+        batched_output = []
         for sample in batch:
             tokens = self.parser.unparse(sample.program).split(" ")
             tokens = ["<CLS>"] + tokens
@@ -41,6 +42,7 @@ class Collate:
                         out[i + 1, 2] = float(v) / self.max_value
                 batched_code.append(code)
                 batched_input.append(out)
+                batched_output.append(example.output)
 
         # collate
         code = torch.nn.utils.rnn.pad_sequence(batched_code)
@@ -51,4 +53,4 @@ class Collate:
         input_mask = torch.zeros(input.shape[0], input.shape[1], dtype=torch.bool)
         for i in range(len(batched_input)):
             input_mask[:len(batched_input[i]), i] = True
-        return code, code_mask, input, input_mask, len(batch)
+        return code, code_mask, input, input_mask, batched_output, len(batch)
