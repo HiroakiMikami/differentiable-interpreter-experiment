@@ -72,6 +72,9 @@ def test_run_invalid_program():
     ) is None
     assert interpreter.run(Function(FunctionName.DIV, [Number(2)]), []) is None
     assert interpreter.run(Function(FunctionName.MOD, [Number(2)]), []) is None
+    assert interpreter.run(
+        Function(FunctionName.MOD, [Number(2), Number(0)]), []
+    ) is None
     assert interpreter.run(Function(FunctionName.NOT, []), []) is None
     assert interpreter.run(Function(FunctionName.NOT, [Number(10)]), []) is None
     assert interpreter.run(Function(FunctionName.AND, [Boolean(True)]), []) is None

@@ -225,6 +225,8 @@ class Interpreter:
                     raise FailToRun()
                 elif p.name == FunctionName.MOD:
                     if isinstance(args[0], int) and isinstance(args[1], int):
+                        if args[1] == 0:
+                            raise FailToRun()
                         return args[0] % args[1]
                     raise FailToRun()
                 elif p.name == FunctionName.NOT:
@@ -308,7 +310,7 @@ class RandomDataset(torch.utils.data.IterableDataset):
     @property
     def tokens(self):
         names = list(FunctionName.__members__.keys())
-        m = max(self.max_input, self.max_inta)
+        m = max(self.max_input, self.max_int)
         return ["input", "(", ")", "True", "False"] + names + list(range(0, m + 1))
 
     def __iter__(self):
