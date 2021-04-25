@@ -33,6 +33,10 @@ class Collate:
             tokens = self.parser.unparse(sample.program).split(" ")
             tokens = ["<CLS>"] + tokens[:self.n_max_token_length]
             code = self.token_encoder.batch_encode(tokens)
+            L = self.n_max_token_length + 1
+            code = torch.nn.functional.pad(
+                code, [0, L - len(code)]
+            )
             code = torch.nn.functional.one_hot(
                 code, num_classes=self.token_encoder.vocab_size
             ).float()
@@ -52,12 +56,9 @@ class Collate:
 
         # collate
         code = torch.nn.utils.rnn.pad_sequence(batched_code)
-        code_mask = torch.zeros(code.shape[0], code.shape[1], dtype=torch.bool)
-        for i in range(len(batched_code)):
-            code_mask[:len(batched_code[i]), i] = True
         input = torch.nn.utils.rnn.pad_sequence(batched_input)
         input_mask = torch.zeros(input.shape[0], input.shape[1], dtype=torch.bool)
         for i in range(len(batched_input)):
             input_mask[:len(batched_input[i]), i] = True
         output = self.value_encoder.batch_encode(batched_output)
-        return code, code_mask, input, input_mask, output, len(batch)
+        return code, input, input_mask, output, len(batch)

@@ -1,6 +1,7 @@
+from typing import Callable, List, Optional
+
 import torch
 from torchnlp.encoders import LabelEncoder
-from typing import Callable, List, Optional
 
 
 def infer(
@@ -26,12 +27,11 @@ def infer(
         p = token_prob.reshape(max_token_length, 1, n_token).expand(
             max_token_length, N, n_token
         )
-        p_mask = torch.ones(max_token_length, N, dtype=torch.bool)
 
         # Calc gradient of token prob
         optimizer = torch.optim.SGD([token_prob], lr=lr)
         optimizer.zero_grad()
-        out = model(p, p_mask, encoded_inputs, input_masks)
+        out = model(p, encoded_inputs, input_masks)
         loss = loss_fn(out, encoded_outputs).sum()
         loss.backward()
         optimizer.step()

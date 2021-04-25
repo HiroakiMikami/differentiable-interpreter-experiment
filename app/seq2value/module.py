@@ -52,18 +52,15 @@ class Module(torch.nn.Module):
         )
 
     def forward(
-        self, token: torch.Tensor, token_mask: torch.Tensor,
+        self, token: torch.Tensor,
         input: torch.Tensor, input_mask: torch.Tensor,
     ):
         # token: [L, N, n_token]
-        # token_mask: [L, N] (True if the token is valid)
         # input: [L_in, N]
         # input_mask:[L_in, N]
         token_embed = self.token_embedding(token)  # [L, N, C]
         token_embed = self.token_pos_enc(token_embed)
-        feature = self.token_encoder(
-            src=token_embed, src_key_padding_mask=token_mask.permute(1, 0) == 0
-        )  # [L, N, C]
+        feature = self.token_encoder(src=token_embed)  # [L, N, C]
         feature = feature[:1]  # gather feature of <CLS> [1, N, C]
 
         value_embed = self.value_embedding(input)  # [L_in, N, C]
