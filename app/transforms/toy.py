@@ -33,6 +33,9 @@ class Collate:
             tokens = self.parser.unparse(sample.program).split(" ")
             tokens = ["<CLS>"] + tokens[:self.n_max_token_length]
             code = self.token_encoder.batch_encode(tokens)
+            code = torch.nn.functional.one_hot(
+                code, num_classes=self.token_encoder.vocab_size
+            ).float()
             for example in sample.examples:
                 inputs = example.inputs[:self.n_max_value_length]
                 out = torch.zeros(len(inputs) + 1, 3)

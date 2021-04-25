@@ -36,7 +36,7 @@ class Module(torch.nn.Module):
         super().__init__()
         self.token_pos_enc = PositionalEncoder(C, n_max_token_length + 1)
         self.input_pos_enc = PositionalEncoder(C, n_max_input_length + 1)
-        self.token_embedding = torch.nn.Embedding(n_token, C)
+        self.token_embedding = torch.nn.Linear(n_token, C)
         self.value_embedding = value_embedding
         self.token_encoder = torch.nn.TransformerEncoder(
             torch.nn.TransformerEncoderLayer(d_model=C, dim_feedforward=C * 4, nhead=1),
@@ -55,7 +55,7 @@ class Module(torch.nn.Module):
         self, token: torch.Tensor, token_mask: torch.Tensor,
         input: torch.Tensor, input_mask: torch.Tensor,
     ):
-        # token: [L, N]
+        # token: [L, N, n_token]
         # token_mask: [L, N] (True if the token is valid)
         # input: [L_in, N]
         # input_mask:[L_in, N]
