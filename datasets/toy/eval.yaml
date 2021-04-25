@@ -1,0 +1,96 @@
+- name: constant
+  program: |
+    input 0
+  examples:
+    - input: [0]
+      output: 0
+    - input: [-1]
+      output: -1
+    - input: [1]
+      output: 1
+- name: "square"
+  program: |
+    MUL ( input 0 input 0 )
+  examples:
+    - input: [0]
+      output: 0
+    - input: [2]
+      output: 4
+    - input: [-2]
+      output: 4
+- name: "mod"
+  program: |
+    MOD ( input 0 input 1 )
+  examples:
+    - input: [2, 2]
+      output: 0
+    - input: [5, 3]
+      output: 2
+- name: "eq"
+  program: |
+    EQ ( input 0 input 1 )
+  examples:
+    - input: [0, 0]
+      output: True
+    - input: [0, 1]
+      output: False
+- name: "mean"
+  program: |
+    DIV ( ADD ( input 0 input 1 ) 2 )
+  examples:
+    - input: [2, 4]
+      output: 3
+    - input: [2, -2]
+      output: 0
+    - input: [2, 1]
+      output: 1
+- name: "abs"
+  program: |
+    WHERE ( LT ( input 0 0 ) NEG ( input 0 ) input 0 )
+  examples:
+    - input: [0]
+      output: 0
+    - input: [1]
+      output: 1
+    - input: [-1]
+      output: 1
+- name: "min"
+  program: |
+    WHERE ( LT ( input 0 input 1 ) input 0 input 1 )
+  examples:
+    - input: [-1, 2]
+      output: -1
+    - input: [3, 2]
+      output: 2
+    - input: [2, 2]
+      output: 2
+- name: "relu"
+  program: |
+    WHERE ( LT ( input 0 0 ) 0 input 0 )
+  examples:
+    - input: [0]
+      output: 0
+    - input: [1]
+      output: 1
+    - input: [-1]
+      output: 0
+- name: "xor"
+  program: |
+    AND ( OR ( input 0 input 1 ) NOT ( AND ( input 0 input 1 ) ) )
+  examples:
+    - input: [False, True]
+      output: True
+    - input: [True, False]
+      output: True
+    - input: [False, False]
+      output: False
+    - input: [True, True]
+      output: False
+- name: "even"
+  program: |
+    EQ ( MOD ( input 0 2 ) 0 )
+  examples:
+    - input: [2]
+      output: True
+    - input: [1]
+      output: False

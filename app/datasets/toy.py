@@ -115,7 +115,7 @@ class Function(Program):
 class Parser:
     def parse(self, code: str) -> Optional[Program]:
         name2enum = FunctionName.__members__
-        tokens = code.split(" ")
+        tokens = [token.strip() for token in code.split(" ")]
 
         class FailToParse(Exception):
             pass
@@ -138,12 +138,12 @@ class Parser:
                 offset += 1
                 if tokens[offset] != "(":
                     raise FailToParse()
+                offset += 1
                 args: List[Program] = []
                 while offset < len(tokens):
                     token = tokens[offset]
-                    offset += 1
                     if token == ")":
-                        return Function(name, args), offset
+                        return Function(name, args), offset + 1
                     arg, offset = _parse(tokens, offset)
                     args.append(arg)
                 raise FailToParse()
@@ -281,7 +281,7 @@ class Interpreter:
 
 @dataclass
 class Example:
-    inputs: List[int]
+    inputs: List[Union[int, bool]]
     output: Union[int, bool]
 
 

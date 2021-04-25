@@ -8,3 +8,4 @@
 !/app/**/*.py
 !/test/**/*.py
 !/tasks/**/*.py
+!/datasets/**/*.yaml
