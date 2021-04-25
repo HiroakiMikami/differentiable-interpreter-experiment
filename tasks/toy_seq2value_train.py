@@ -39,8 +39,8 @@ parser.add_argument("--channel", type=int, default=128)
 parser.add_argument("--n-layer", type=int, default=6)
 # training
 parser.add_argument("--batch-size", type=int, default=32)
-parser.add_argument("--n-iter", type=int, default=10000)
-parser.add_argument("--save-interval", type=int, default=1000)
+parser.add_argument("--n-iter", type=int, default=2000)
+parser.add_argument("--save-interval", type=int, default=500)
 parser.add_argument("--out", type=str, required=True)
 parser.add_argument("--device", type=str, default="cpu", choices=["cpu", "cuda"])
 # debugging
@@ -110,6 +110,10 @@ optimizer = torch.optim.Adam([
     }
 ],
 )
+scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+    optimizer,
+    T_max=args.n_iter,
+)
 
 # Training
 logger.info("Initialize training utils")
@@ -138,6 +142,10 @@ manager.extend(
 manager.extend(
     extensions.PrintReport(),
     trigger=Trigger(100, args.n_iter),
+)
+manager.extend(
+    extensions.LRScheduler(scheduler),
+    trigger=(1, "iteration"),
 )
 
 manager.extend(extensions.ProgressBar())
