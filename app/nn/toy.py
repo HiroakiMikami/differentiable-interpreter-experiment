@@ -1,7 +1,4 @@
-from typing import List, Union
-
 import torch
-from pytorch_pfn_extras.reporting import report
 
 
 class Decoder(torch.nn.Module):
