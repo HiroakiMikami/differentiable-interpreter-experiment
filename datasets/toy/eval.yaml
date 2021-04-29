@@ -1,5 +1,11 @@
 - name: constant
   program: |
+    0
+  examples:
+    - input: []
+      output: 0
+- name: id
+  program: |
     input 0
   examples:
     - input: [0]
