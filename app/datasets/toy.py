@@ -331,7 +331,7 @@ class RandomDataset(torch.utils.data.IterableDataset):
                 x: List[int] = rng.randint(
                     -(self.parent.max_int + 1), self.parent.max_int + 1, p.n_input
                 ).tolist()
-                return x
+                return [int(v) for v in x]
 
             def _gen_program(self, max_depth: int) -> Program:
                 assert max_depth != 0
@@ -341,11 +341,11 @@ class RandomDataset(torch.utils.data.IterableDataset):
                     cands = ["Function"]
                 x = rng.choice(cands)
                 if x == "Input":
-                    return Input(rng.randint(0, self.parent.max_input + 1))
+                    return Input(int(rng.randint(0, self.parent.max_input + 1)))
                 elif x == "Number":
-                    return Number(rng.randint(0, self.parent.max_int + 1))
+                    return Number(int(rng.randint(0, self.parent.max_int + 1)))
                 elif x == "Boolean":
-                    return Boolean(rng.choice([True, False]))
+                    return Boolean(bool(rng.choice([True, False])))
                 else:
                     names = list(FunctionName.__members__.values())
                     name = rng.choice(names)
@@ -372,11 +372,90 @@ class RandomDataset(torch.utils.data.IterableDataset):
                         if x is None:
                             return True
                         else:
-                            return abs(x) <= self.parent.max_int
+                            return abs(x) > self.parent.max_int
 
                     if any([cond(out) for out in outs]):
                         continue
                     samples = [Example(input, out) for input, out in zip(inputs, outs)]
                     return Sample(p, samples)
+
+        return InternalIterator(self)
+
+
+@dataclass
+class FlatSample:
+    function: Union[FunctionName, str]
+    example: Example
+
+
+class RandomFlatDataset(torch.utils.data.IterableDataset):
+    def __init__(
+        self,
+        rng: np.random.RandomState,
+        max_int: int,
+    ):
+        self.rng = rng
+        self.max_int = max_int
+        self.functions = {v: v for v in FunctionName.__members__.values()}
+        self.functions["True"] = True
+        self.functions["False"] = False
+        self.functions["0"] = 0
+        for i in range(0, max_int):
+            self.functions[str(i)] = i
+            self.functions[str(-i)] = -i
+        self.interpreter = Interpreter()
+
+    def __iter__(self):
+        worker_info = torch.utils.data.get_worker_info()
+        worker_id = 0
+        if worker_info is not None:
+            worker_id = worker_info.id
+        seed = self.rng.randint(0, (2 << 31) - 1) + worker_id
+        rng = np.random.RandomState(seed)
+
+        class InternalIterator:
+            def __init__(self, parent):
+                self.parent = parent
+
+            def __next__(self) -> FlatSample:
+                f = self.parent.rng.choice(list(self.parent.functions.keys()))
+                if isinstance(f, str):
+                    # Constant
+                    return FlatSample(f, Example([], self.parent.functions[f]))
+                else:
+                    # function
+                    while True:
+                        f = self.parent.functions[f]
+                        arity = FunctionName.arity(f)
+                        inputs = []
+                        args = []
+                        for _ in range(arity):
+                            if self.parent.rng.choice([True, False]):
+                                # bool
+                                inputs.append(
+                                    bool(self.parent.rng.choice([True, False]))
+                                )
+                                args.append(Boolean(inputs[-1]))
+                            else:
+                                # int
+                                inputs.append(
+                                    int(rng.randint(
+                                        -(self.parent.max_int + 1),
+                                        self.parent.max_int + 1,
+                                    ))
+                                )
+                                args.append(Number(inputs[-1]))
+                        p = Function(f, args)
+                        out = self.parent.interpreter.run(p, [])
+
+                        def cond(x):
+                            if x is None:
+                                return True
+                            else:
+                                return abs(x) > self.parent.max_int
+
+                        if cond(out):
+                            continue
+                        return FlatSample(f, Example(inputs, out))
 
         return InternalIterator(self)

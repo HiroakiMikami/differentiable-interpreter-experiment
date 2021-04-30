@@ -10,6 +10,7 @@ from app.datasets.toy import (
     Number,
     Parser,
     RandomDataset,
+    RandomFlatDataset,
 )
 
 
@@ -119,3 +120,31 @@ def test_multiworker_dataset():
         if i == 1:
             break
     assert samples[0].program != samples[1].program
+
+
+def test_flat_dataset():
+    dataset = RandomFlatDataset(np.random.RandomState(0), 100)
+    interpreter = Interpreter()
+    check_const = False
+    check_func = False
+    for i, sample in enumerate(dataset):
+        if i == 100:
+            break
+        example = sample.example
+        assert example.output is not None
+        if isinstance(sample.function, str):
+            check_const = True
+            assert sample.function == str(example.output)
+        else:
+            check_func = True
+            args = []
+            for input in example.inputs:
+                if isinstance(input, bool):
+                    args.append(Boolean(input))
+                else:
+                    args.append(Number(input))
+            p = Function(sample.function, args)
+            assert interpreter.run(p, []) == example.output
+
+    assert check_const
+    assert check_func
