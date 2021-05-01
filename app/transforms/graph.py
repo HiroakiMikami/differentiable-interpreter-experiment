@@ -3,7 +3,7 @@ from typing import List
 import torch
 from torchnlp.encoders import LabelEncoder
 
-from app.datasets.toy import Parser, FlatSample, FunctionName
+from app.datasets.toy import FlatSample, FunctionName, Parser
 
 
 class Collate:

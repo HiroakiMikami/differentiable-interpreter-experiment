@@ -10,7 +10,6 @@ import yaml
 from pytorch_pfn_extras.training import extensions
 
 from app.datasets.toy import Example, Parser, RandomDataset, Sample
-from app.nn.model import Model
 from app.nn.toy import Decoder, Loss
 from app.pytorch_pfn_extras import Trigger
 from app.seq2value.module import Module
@@ -86,12 +85,11 @@ if args.use_eval:
 
 # Module
 logger.info("Initialize model")
-encoder = Module(
+model = Module(
     args.channel, args.n_layer, collate.token_encoder.vocab_size,
-    args.max_token_length, args.max_input, torch.nn.Linear(3, args.channel)
+    args.max_token_length, args.max_input, torch.nn.Linear(3, args.channel),
+    Decoder(args.channel, args.max_value),
 )
-decoder = Decoder(args.channel, args.max_value)
-model = Model(encoder, decoder)
 loss_fn = Loss()
 
 optimizer = torch.optim.Adam([

@@ -5,7 +5,7 @@ from app.seq2value.module import Module
 
 
 def test_module_shape():
-    module = Module(8, 1, 3, 80, 8, torch.nn.Embedding(5, 8))
+    module = Module(8, 1, 3, 80, 8, torch.nn.Embedding(5, 8), torch.nn.Identity())
     out = module(
         torch.randint(0, 1, size=(5, 3, 3)).float(),
         torch.randint(0, 5, size=(5, 3)),
@@ -17,7 +17,7 @@ def test_module_shape():
 def test_module_value_mask():
     torch.manual_seed(0)
     with torch.no_grad():
-        module = Module(8, 1, 3, 80, 8, torch.nn.Embedding(5, 8))
+        module = Module(8, 1, 3, 80, 8, torch.nn.Embedding(5, 8), torch.nn.Identity())
         module.eval()
         token0 = torch.randint(0, 1, size=(1, 3)).float()
         token1 = torch.randint(0, 1, size=(1, 3)).float()

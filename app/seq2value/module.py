@@ -31,7 +31,9 @@ class PositionalEncoder(torch.nn.Module):
 class Module(torch.nn.Module):
     def __init__(
         self, C: int, n_layer: int, n_token: int, n_max_token_length: int,
-        n_max_input_length: int, value_embedding: torch.nn.Module,
+        n_max_input_length: int,
+        value_embedding: torch.nn.Module,
+        value_decoder: torch.nn.Module,
     ):
         super().__init__()
         self.token_pos_enc = PositionalEncoder(C, n_max_token_length + 1)
@@ -50,6 +52,7 @@ class Module(torch.nn.Module):
             torch.nn.TransformerDecoderLayer(d_model=C, dim_feedforward=C * 4, nhead=1),
             num_layers=n_layer,
         )
+        self.value_decoder = value_decoder
 
     def forward(
         self, token: torch.Tensor,
@@ -73,4 +76,4 @@ class Module(torch.nn.Module):
             memory=feature,
             tgt_key_padding_mask=input_mask.permute(1, 0) == 0,
         )  # [1, N, C]
-        return out[0]
+        return self.value_decoder(out[0])

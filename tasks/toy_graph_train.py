@@ -9,9 +9,9 @@ import torch
 from pytorch_pfn_extras.training import extensions
 
 from app.datasets.toy import RandomFlatDataset
+from app.graph.module import Module
 from app.nn.toy import Decoder, Loss
 from app.pytorch_pfn_extras import Trigger
-from app.graph.module import Module
 from app.transforms.graph import Collate
 
 level = logging.INFO
