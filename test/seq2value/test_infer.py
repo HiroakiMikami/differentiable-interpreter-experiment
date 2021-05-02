@@ -12,7 +12,7 @@ def test_infer():
     )
     encoded_input = torch.randint(0, 5, size=(5, 1))
     input_mask = torch.randint(0, 1, size=(5, 1)).bool()
-    output = torch.rand(3, 8)
+    output = torch.rand(1, 8)
     assert infer(
         module,
         torch.nn.MSELoss(),
