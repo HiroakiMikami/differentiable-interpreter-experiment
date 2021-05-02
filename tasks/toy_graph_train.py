@@ -62,9 +62,9 @@ if args.n_sample != 0:
 logger.info("Initialize model")
 model = Module(
     args.channel,
-    [0] + list(collate.arities.values()),  # 0 = unknown
+    collate.func,
     torch.nn.Linear(collate.value_encoder.vocab_size, args.channel),
-    Decoder(args.channel, args.max_value)
+    Decoder(args.channel, collate.value_encoder)
 )
 loss_fn = Loss()
 

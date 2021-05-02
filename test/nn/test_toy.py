@@ -7,7 +7,7 @@ from app.nn.toy import Decoder, Loss
 
 def test_decoder_shape():
     decoder = Decoder(128, LabelEncoder([1]))
-    assert decoder(torch.rand(5, 128)).shape == (5, 2 + 5)
+    assert decoder(torch.rand(5, 128)).shape == (5, 2)
 
 
 def test_loss_shape():

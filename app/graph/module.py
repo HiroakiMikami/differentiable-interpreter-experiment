@@ -1,15 +1,25 @@
 import torch
+from torchnlp.encoders import LabelEncoder
+
+from app.datasets.toy import FunctionName
 
 
 class Module(torch.nn.Module):
     def __init__(
         self,
         C: int,
-        arities: list[int],
+        func_encoder: LabelEncoder,
         encoder: torch.nn.Module,
         decoder: torch.nn.Module,
     ):
         super().__init__()
+        arities = []
+        for x in func_encoder.vocab:
+            if isinstance(x, FunctionName):
+                arities.append(FunctionName.arity(x))
+            else:
+                arities.append(0)
+
         self.n_func = len(arities)
         self.arities = arities
         self.encoder = encoder
