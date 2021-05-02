@@ -42,14 +42,7 @@ class Collate:
             ).float()
             for example in sample.examples:
                 inputs = example.inputs[:self.n_max_value_length]
-                out = torch.zeros(len(inputs) + 1, 3)
-                for i, v in enumerate(inputs):
-                    if isinstance(v, bool):
-                        out[i + 1, 0] = 1.0
-                        out[i + 1, 1] = 1.0 if v else 0.0
-                    else:
-                        out[i + 1, 0] = 0.0
-                        out[i + 1, 2] = float(v) / self.max_value
+                out = self.value_encoder.batch_encode([None] + inputs)  # None = unknown
                 batched_code.append(code)
                 batched_input.append(out)
                 batched_output.append(example.output)

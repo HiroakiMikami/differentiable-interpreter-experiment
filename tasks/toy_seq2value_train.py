@@ -74,7 +74,7 @@ if args.use_eval:
         eval_dataset = yaml.load(file)
     parser = Parser()
     dataset = []
-    for sample in eval_dataset:
+    for sample in eval_dataset[:2]:
         name = sample["name"]
         code = sample["program"]
         examples = sample["examples"]
@@ -87,7 +87,8 @@ if args.use_eval:
 logger.info("Initialize model")
 model = Module(
     args.channel, args.n_layer, collate.token_encoder.vocab_size,
-    args.max_token_length, args.max_input, torch.nn.Linear(3, args.channel),
+    args.max_token_length, args.max_input,
+    torch.nn.Embedding(collate.value_encoder.vocab_size, args.channel),
     Decoder(args.channel, args.max_value),
 )
 loss_fn = Loss()
