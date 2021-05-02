@@ -1,11 +1,12 @@
 import numpy as np
 import torch
+from torchnlp.encoders import LabelEncoder
 
 from app.nn.toy import Decoder, Loss
 
 
 def test_decoder_shape():
-    decoder = Decoder(128, 2)
+    decoder = Decoder(128, LabelEncoder([1]))
     assert decoder(torch.rand(5, 128)).shape == (5, 2 + 5)
 
 

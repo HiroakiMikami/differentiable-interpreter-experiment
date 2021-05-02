@@ -15,10 +15,9 @@ class Collate:
         n_max_value_length: int,
     ):
         self.token_encoder = LabelEncoder(["<CLS>"] + tokens)
-        self.value_encoder = LabelEncoder(
-            [True, False, 0] + list(range(1, max_value + 1)) +
+        values = [True, False, 0] + list(range(1, max_value + 1)) + \
             [-v for v in range(1, max_value + 1)]
-        )
+        self.value_encoder = LabelEncoder([str(v) for v in values])
         self.max_value = max_value
         self.n_max_token_length = n_max_token_length
         self.n_max_value_length = n_max_value_length
@@ -41,11 +40,11 @@ class Collate:
                 code, num_classes=self.token_encoder.vocab_size
             ).float()
             for example in sample.examples:
-                inputs = example.inputs[:self.n_max_value_length]
+                inputs = [str(v) for v in example.inputs[:self.n_max_value_length]]
                 out = self.value_encoder.batch_encode([None] + inputs)  # None = unknown
                 batched_code.append(code)
                 batched_input.append(out)
-                batched_output.append(example.output)
+                batched_output.append(str(example.output))
 
         # collate
         code = torch.nn.utils.rnn.pad_sequence(batched_code)

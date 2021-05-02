@@ -67,7 +67,7 @@ model = Module(
     args.channel, args.n_layer, collate.token_encoder.vocab_size,
     args.max_token_length, args.max_input,
     torch.nn.Embedding(collate.value_encoder.vocab_size, args.channel),
-    Decoder(args.channel, args.max_value),
+    Decoder(args.channel, collate.value_encoder),
 )
 model.load_state_dict(torch.load(args.model_path, map_location="cpu"))
 loss_fn = Loss()

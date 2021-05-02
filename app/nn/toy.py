@@ -1,10 +1,11 @@
 import torch
+from torchnlp.encoders import LabelEncoder
 
 
 class Decoder(torch.nn.Module):
-    def __init__(self, C: int, max_int: int):
+    def __init__(self, C: int, value_encoder: LabelEncoder):
         super().__init__()
-        n_token = max_int * 2 + 3  # True, False, 0, 1, ..., max_int, -1, ..., -max_int
+        n_token = value_encoder.vocab_size
         self.hidden = torch.nn.Linear(C, C * 4)
         self.out = torch.nn.Linear(C * 4, n_token)
 
