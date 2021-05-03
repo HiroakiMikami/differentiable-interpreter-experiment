@@ -92,7 +92,9 @@ model = Module(
     torch.nn.Embedding(collate.value_encoder.vocab_size, args.channel),
     Decoder(args.channel, collate.value_encoder),
 )
+model.to(device)
 loss_fn = Loss()
+loss_fn.to(device)
 print(sum([x.numel() for x in model.parameters()]) / 1024 / 1024, "Mi")
 
 optimizer = torch.optim.Adam([
@@ -168,6 +170,7 @@ while not stop_trigger():
             code = code.to(device)
             input = input.to(device)
             input_mask = input_mask.to(device)
+            gt = gt.to(device)
 
             optimizer.zero_grad(set_to_none=True)
             out = model(code, input, input_mask)
