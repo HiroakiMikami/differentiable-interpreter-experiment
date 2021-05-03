@@ -13,14 +13,13 @@ class Collate:
     ):
         constants = [True, False, 0] + list(range(1, max_value + 1)) + \
             [-v for v in range(1, max_value + 1)]
-        self.arities = {c: 0 for c in constants}
-        for f in FunctionName.__members__:
+        self.arities = {str(c): 0 for c in constants}
+        for f in FunctionName.__members__.values():
             self.arities[f] = FunctionName.arity(f)
         self.func = LabelEncoder(list(self.arities.keys()))
-        self.value_encoder = LabelEncoder(
-            [True, False, 0] + list(range(1, max_value + 1)) +
+        values = [True, False, 0] + list(range(1, max_value + 1)) + \
             [-v for v in range(1, max_value + 1)]
-        )
+        self.value_encoder = LabelEncoder([str(v) for v in values])
         self.max_value = max_value
         self.parser = Parser()
 

@@ -6,9 +6,21 @@ import sys
 import numpy as np
 import pytorch_pfn_extras as ppe
 import torch
+import yaml
 from pytorch_pfn_extras.training import extensions
 
-from app.datasets.toy import RandomFlatDataset
+from app.datasets.toy import (
+    Boolean,
+    Example,
+    FlatSample,
+    Function,
+    Input,
+    Interpreter,
+    Number,
+    Parser,
+    Program,
+    RandomFlatDataset,
+)
 from app.graph.module import Module
 from app.nn.toy import Decoder, Loss
 from app.pytorch_pfn_extras import Trigger
@@ -38,6 +50,7 @@ parser.add_argument("--out", type=str, required=True)
 parser.add_argument("--device", type=str, default="cpu", choices=["cpu", "cuda"])
 # debugging
 parser.add_argument("--n-sample", type=int, default=0)
+parser.add_argument("--use-eval", action="store_true")
 
 args = parser.parse_args()
 
@@ -57,6 +70,43 @@ if args.n_sample != 0:
         if i + 1 == args.n_sample:
             break
     dataset = tmp
+
+if args.use_eval:
+    with open(os.path.join(
+        os.path.dirname(__file__), "..", "datasets", "toy", "eval.yaml")
+    ) as file:
+        eval_dataset = yaml.load(file)
+    parser = Parser()
+    interpreter = Interpreter()
+    dataset = []
+    for sample in eval_dataset:
+        name = sample["name"]
+        code = sample["program"]
+        program = parser.parse(code)
+        examples = sample["examples"]
+        for x in examples:
+            example = Example(x["input"], x["output"])
+
+            def eval_and_append(program: Program):
+                if isinstance(program, Input):
+                    out = example.inputs[program.id]
+                    dataset.append(FlatSample(str(out), Example([], out)))
+                    return out
+                elif isinstance(program, Number) or isinstance(program, Boolean):
+                    out = program.value
+                    dataset.append(FlatSample(str(out), Example([], out)))
+                    return out
+                elif isinstance(program, Function):
+                    inputs = []
+                    for arg in program.args:
+                        inputs.append(eval_and_append(arg))
+                    out = interpreter.run(program, example.inputs)
+                    dataset.append(FlatSample(program.name, Example(inputs, out)))
+                    return out
+                else:
+                    raise AssertionError()
+            eval_and_append(program)
+
 
 # Module
 logger.info("Initialize model")
@@ -83,7 +133,7 @@ optimizer = torch.optim.Adam([
         "weight_decay": 0.01,
     }
 ],
-    lr=1e-5
+    lr=1e-4
 )
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
     optimizer,

@@ -4,9 +4,19 @@
   examples:
     - input: []
       output: 0
-- name: id
+- name: read
   program: |
     input 0
+  examples:
+    - input: [0]
+      output: 0
+    - input: [-1]
+      output: -1
+    - input: [1]
+      output: 1
+- name: id
+  program: |
+    ID ( input 0 )
   examples:
     - input: [0]
       output: 0
