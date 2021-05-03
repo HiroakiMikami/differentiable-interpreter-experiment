@@ -45,6 +45,7 @@ parser.add_argument("--max-value", type=int, default=10)
 parser.add_argument("--channel", type=int, default=128)
 # training
 parser.add_argument("--batch-size", type=int, default=32)
+parser.add_argument("--learning-rate", type=float, default=1e-5)
 parser.add_argument("--n-iter", type=int, default=2000)
 parser.add_argument("--save-interval", type=int, default=500)
 parser.add_argument("--out", type=str, required=True)
@@ -135,7 +136,7 @@ optimizer = torch.optim.Adam([
         "weight_decay": 0.01,
     }
 ],
-    lr=1e-4
+    lr=args.learning_rate,
 )
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
     optimizer,
