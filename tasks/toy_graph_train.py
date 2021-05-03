@@ -32,7 +32,8 @@ if sys.version_info[:2] >= (3, 8):
     logging.basicConfig(level=level, stream=sys.stdout,
                         force=True)
 else:
-    logging.root.handlers[0].setLevel(level)
+    logging.basicConfig(level=level, stream=sys.stdout)
+    # logging.root.handlers[0].setLevel(level)
 
 
 logger = logging.getLogger(__name__)
