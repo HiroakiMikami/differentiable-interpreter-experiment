@@ -21,7 +21,8 @@ if sys.version_info[:2] >= (3, 8):
     logging.basicConfig(level=level, stream=sys.stdout,
                         force=True)
 else:
-    logging.root.handlers[0].setLevel(level)
+    logging.basicConfig(level=level, stream=sys.stdout)
+    # logging.root.handlers[0].setLevel(level)
 
 
 logger = logging.getLogger(__name__)
@@ -92,6 +93,7 @@ model = Module(
     Decoder(args.channel, collate.value_encoder),
 )
 loss_fn = Loss()
+print(sum([x.numel() for x in model.parameters()]) / 1024 / 1024, "Mi")
 
 optimizer = torch.optim.Adam([
     {

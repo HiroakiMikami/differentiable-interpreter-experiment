@@ -120,6 +120,7 @@ model = Module(
 )
 model.to(device)
 loss_fn = Loss()
+print(sum([x.numel() for x in model.parameters()]) / 1024 / 1024, "Mi")
 
 optimizer = torch.optim.Adam([
     {
