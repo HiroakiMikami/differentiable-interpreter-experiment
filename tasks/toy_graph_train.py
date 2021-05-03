@@ -117,6 +117,7 @@ model = Module(
     torch.nn.Linear(collate.value_encoder.vocab_size, args.channel),
     Decoder(args.channel, collate.value_encoder)
 )
+model.to(device)
 loss_fn = Loss()
 
 optimizer = torch.optim.Adam([
