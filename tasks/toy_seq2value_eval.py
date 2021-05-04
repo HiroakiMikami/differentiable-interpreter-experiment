@@ -95,7 +95,7 @@ for sample in eval_dataset:
             if program is None:
                 return False
             for example in examples:
-                pred = interpreter.run(program, example.input)
+                pred = interpreter.run(program, example.inputs)
                 if pred != example.output:
                     return False
             return True

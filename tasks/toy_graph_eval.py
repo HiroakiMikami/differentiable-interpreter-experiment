@@ -12,6 +12,7 @@ from app.graph.graph import to_graph
 from app.graph.module import Module
 from app.nn.toy import Decoder, Loss
 from app.transforms.graph import Collate
+from app.graph.infer import infer
 
 level = logging.INFO
 if sys.version_info[:2] >= (3, 8):
@@ -31,6 +32,7 @@ parser.add_argument("--max-value", type=int, default=10)
 # model
 parser.add_argument("--channel", type=int, default=128)
 parser.add_argument("--model-path", type=str, required=True)
+parser.add_argument("--max-nodes", type=int, default=8)
 # evaluation
 parser.add_argument("--task", type=str, default="pbe", choices=["interpreter", "pbe"])
 parser.add_argument("--n-optimize", type=int, default=1000)
@@ -76,24 +78,42 @@ for sample in eval_dataset:
 
     logger.info(f"eval for {name}")
     if args.task == "pbe":
-        raise NotADirectoryError()
+        def validate(program):
+            if program is None:
+                return False
+            for example in examples:
+                pred = interpreter.run(program, example.inputs)
+                if pred != example.output:
+                    return False
+            return True
+
+        out = infer(
+            collate.value_encoder.vocab_size,
+            model,
+            loss_fn,
+            args.max_nodes,
+            [example.inputs for example in examples],
+            [example.output for example in examples],
+            collate.value_encoder,
+            collate.func,
+            args.n_optimize,
+            args.check_interval,
+            validate,
+        )
+        if out is None:
+            logger.info("  Fail to synthesize")
+        else:
+            code = parser.unparse(out)
+            logger.info(f"  {code}")
     elif args.task == "interpreter":
         for i, example in enumerate(sample.examples):
             nodes = to_graph(collate.func, sample.program, example.inputs)
             with torch.no_grad():
-                pred = interpreter_module(nodes)
-                # TODO softmax
-                # loss = loss_fn(pred.unsqueeze(0), encoded_outputs[i].unsqueeze(0))
+                pred, logit = interpreter_module(nodes)
+                # loss = loss_fn(logit, encoded_outputs[i].unsqueeze(0))
                 pred_output = collate.value_encoder.decode(pred.argmax(dim=0))
 
             logger.info(
                 f" {i}-th Example: {example.inputs} => " +
                 f"gt={example.output} pred={pred_output}"
             )
-            """
-            logger.info(
-                f" {i}-th Example: {example.inputs} => " +
-                f"gt={example.output} pred={pred_output} " +
-                f"(loss={loss[i]})"
-            )
-            """
