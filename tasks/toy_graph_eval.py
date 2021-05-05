@@ -9,10 +9,10 @@ import yaml
 from app.datasets.toy import Example, Interpreter, Parser, Sample
 from app.graph.graph import Interpreter as InterpreterModule
 from app.graph.graph import to_graph
+from app.graph.infer import infer
 from app.graph.module import Module
 from app.nn.toy import Decoder, Loss
 from app.transforms.graph import Collate
-from app.graph.infer import infer
 
 level = logging.INFO
 if sys.version_info[:2] >= (3, 8):
@@ -58,11 +58,11 @@ logger.info("Initialize model")
 model = Module(
     args.channel,
     collate.func,
-    torch.nn.Linear(collate.value_encoder.vocab_size, args.channel),
-    Decoder(args.channel, collate.value_encoder)
+    torch.nn.Linear(3, args.channel),
+    Decoder(args.channel)
 )
 model.load_state_dict(torch.load(args.model_path, map_location="cpu"))
-interpreter_module = InterpreterModule(collate.value_encoder.vocab_size, model)
+interpreter_module = InterpreterModule(model)
 loss_fn = Loss()
 
 parser = Parser()
@@ -88,13 +88,11 @@ for sample in eval_dataset:
             return True
 
         out = infer(
-            collate.value_encoder.vocab_size,
             model,
             loss_fn,
             args.max_nodes,
             [example.inputs for example in examples],
             [example.output for example in examples],
-            collate.value_encoder,
             collate.func,
             args.n_optimize,
             args.check_interval,
@@ -109,9 +107,15 @@ for sample in eval_dataset:
         for i, example in enumerate(sample.examples):
             nodes = to_graph(collate.func, sample.program, example.inputs)
             with torch.no_grad():
-                pred, logit = interpreter_module(nodes)
+                pred, raw = interpreter_module(nodes)
                 # loss = loss_fn(logit, encoded_outputs[i].unsqueeze(0))
-                pred_output = collate.value_encoder.decode(pred.argmax(dim=0))
+                is_bool = pred[0]
+                if is_bool >= 0.5:
+                    # bool
+                    is_true = pred[1]
+                    pred_output = True if is_true >= 0.5 else False
+                else:
+                    pred_output = round(pred[2].item())
 
             logger.info(
                 f" {i}-th Example: {example.inputs} => " +

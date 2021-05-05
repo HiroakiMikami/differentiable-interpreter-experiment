@@ -311,7 +311,10 @@ class RandomDataset(torch.utils.data.IterableDataset):
     def tokens(self):
         names = list(FunctionName.__members__.keys())
         m = max(self.max_input, self.max_int)
-        return ["input", "(", ")", "True", "False"] + names + list(range(0, m + 1))
+        tokens = ["input", "(", ")", "True", "False"] + names
+        tokens.extend([str(x) for x in range(0, m + 1)])
+        tokens.extend([str(-x) for x in range(0, m + 1)])
+        return tokens
 
     def __iter__(self):
         worker_info = torch.utils.data.get_worker_info()

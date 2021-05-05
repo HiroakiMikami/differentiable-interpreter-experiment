@@ -89,8 +89,8 @@ logger.info("Initialize model")
 model = Module(
     args.channel, args.n_layer, collate.token_encoder.vocab_size,
     args.max_token_length, args.max_input,
-    torch.nn.Embedding(collate.value_encoder.vocab_size, args.channel),
-    Decoder(args.channel, collate.value_encoder),
+    torch.nn.Linear(3, args.channel),
+    Decoder(args.channel),
 )
 model.to(device)
 loss_fn = Loss()

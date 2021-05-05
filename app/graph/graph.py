@@ -54,22 +54,23 @@ def to_graph(
 
 
 class Interpreter(torch.nn.Module):
-    def __init__(self, E: int, module: torch.nn.Module):
+    def __init__(self, module: torch.nn.Module):
         super().__init__()
-        self.E = E
         self.module = module
 
     def forward(self, nodes: List[Node]) -> torch.Tensor:
         assert len(nodes) > 0
-        args = torch.zeros(0, self.E)  # [n_arg, E]
-        logit = None
+        args = torch.zeros(0, 3)  # [n_arg, 3]
+        raw = None
         for node in nodes:
             out = self.module(
                 node.p_func.unsqueeze(0),
                 args.unsqueeze(0),
                 node.p_args.unsqueeze(0),
-            )[0]  # [E]
-            logit = out
-            out = torch.softmax(out, dim=0)  # logit -> pred
-            args = torch.cat([args, out.unsqueeze(0)], dim=0)  # [n_arg + 1, E]
-        return args[-1], logit
+            )[0]  # [3]
+            raw = out
+            out = out.clone()
+            out[0] = torch.sigmoid(out[0])
+            out[1] = torch.sigmoid(out[1])
+            args = torch.cat([args, out.unsqueeze(0)], dim=0)  # [n_arg + 1, 3]
+        return args[-1], raw

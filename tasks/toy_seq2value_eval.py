@@ -67,8 +67,8 @@ logger.info("Initialize model")
 model = Module(
     args.channel, args.n_layer, collate.token_encoder.vocab_size,
     args.max_token_length, args.max_input,
-    torch.nn.Embedding(collate.value_encoder.vocab_size, args.channel),
-    Decoder(args.channel, collate.value_encoder),
+    torch.nn.Linear(3, args.channel),
+    Decoder(args.channel),
 )
 model.load_state_dict(torch.load(args.model_path, map_location="cpu"))
 loss_fn = Loss()
@@ -112,13 +112,20 @@ for sample in eval_dataset:
             logger.info(f"  {code}")
     elif args.task == "interpreter":
         with torch.no_grad():
-            pred = model(encoded_code, encoded_input, input_mask)
-            loss = loss_fn(pred, encoded_output)
-            pred_output = collate.value_encoder.batch_decode(pred.argmax(dim=1))
-
+            preds = model(encoded_code, encoded_input, input_mask)
+            loss = loss_fn(preds, encoded_output)
         for i, example in enumerate(examples):
+            pred = preds[i]
+            is_bool = torch.sigmoid(pred[0])
+            is_true = torch.sigmoid(pred[1])
+            if is_bool >= 0.5:
+                # bool
+                pred_output = True if is_true >= 0.5 else False
+            else:
+                pred_output = round(pred[2].item())
+
             logger.info(
                 f" {i}-th Example: {example.inputs} => " +
-                f"gt={example.output} pred={pred_output[i]} " +
+                f"gt={example.output} pred={pred_output} " +
                 f"(loss={loss[i]})"
             )

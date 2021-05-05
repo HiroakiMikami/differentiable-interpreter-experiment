@@ -4,6 +4,7 @@ import torch
 from torchnlp.encoders import LabelEncoder
 
 from app.datasets.toy import FlatSample, FunctionName, Parser
+from app.transforms.toy import encode_value
 
 
 class Collate:
@@ -17,9 +18,6 @@ class Collate:
         for f in FunctionName.__members__.values():
             self.arities[f] = FunctionName.arity(f)
         self.func = LabelEncoder(list(self.arities.keys()))
-        values = [True, False, 0] + list(range(1, max_value + 1)) + \
-            [-v for v in range(1, max_value + 1)]
-        self.value_encoder = LabelEncoder([str(v) for v in values])
         self.max_value = max_value
         self.parser = Parser()
 
@@ -42,20 +40,17 @@ class Collate:
             )
 
             p_args = torch.zeros(3, max_n_args)
-            args = torch.zeros(max_n_args, self.value_encoder.vocab_size)
+            args = torch.zeros(max_n_args, 3)
             for i, v in enumerate(sample.example.inputs):
                 p_args[i, i] = 1.0
-                args[i, :] = torch.nn.functional.one_hot(
-                    self.value_encoder.encode(str(v)),
-                    num_classes=self.value_encoder.vocab_size
-                )
+                args[i, :] = encode_value(v)
             batched_p_args.append(p_args)
             batched_args.append(args)
-            batched_output.append(str(sample.example.output))
+            batched_output.append(encode_value(sample.example.output))
 
         # collate
         p_func = torch.stack(batched_p_func)  # [N, n_func]
         p_args = torch.stack(batched_p_args)  # [N, 3, n_args]
-        args = torch.stack(batched_args)  # [N, n_args, n_value]
-        output = self.value_encoder.batch_encode(batched_output)
+        args = torch.stack(batched_args)  # [N, n_args, 3]
+        output = torch.stack(batched_output, dim=0)  # [N, 3]
         return p_func, p_args, args, output

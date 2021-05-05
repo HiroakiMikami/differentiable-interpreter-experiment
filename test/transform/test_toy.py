@@ -17,9 +17,11 @@ def test_collate():
     for x in dataset:
         t0, t1, t2, out, bsize = collate([x])
         assert t0.dtype == torch.float32
-        assert t0.shape == (11, 1, 25)
-        assert t1.dtype == torch.int64
+        assert t0.shape == (11, 1, 27)
+        assert t1.dtype == torch.float32
+        assert t1.shape == (1, 1, 3)
         assert t2.dtype == torch.bool
-        assert len(out) == 1
+        assert out.dtype == torch.float32
+        assert out.shape == (1, 3)
         assert bsize == 1
         break

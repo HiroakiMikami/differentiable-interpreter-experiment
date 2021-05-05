@@ -44,7 +44,7 @@ class Module(torch.nn.Module):
             torch.nn.TransformerEncoderLayer(d_model=C, dim_feedforward=C * 4, nhead=1),
             num_layers=n_layer,
         )
-        self.value_encoder = torch.nn.TransformerEncoder(
+        self.input_encoder = torch.nn.TransformerEncoder(
             torch.nn.TransformerEncoderLayer(d_model=C, dim_feedforward=C * 4, nhead=1),
             num_layers=n_layer,
         )
@@ -66,10 +66,10 @@ class Module(torch.nn.Module):
         feature = self.token_encoder(src=token_embed)  # [L, N, C]
         feature = feature[:1]  # gather feature of <CLS> [1, N, C]
 
-        value_embed = self.value_embedding(input)  # [L_in, N, C]
-        value_embed = self.input_pos_enc(value_embed)
-        value = self.value_encoder(
-            src=value_embed, src_key_padding_mask=input_mask.permute(1, 0) == 0
+        input_embed = self.value_embedding(input)  # [L_in, N, C]
+        input_embed = self.input_pos_enc(input_embed)
+        value = self.input_encoder(
+            src=input_embed, src_key_padding_mask=input_mask.permute(1, 0) == 0
         )  # [L_in, N, C]
         out = self.decoder(
             tgt=value,

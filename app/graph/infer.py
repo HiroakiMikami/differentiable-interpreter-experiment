@@ -1,11 +1,12 @@
 from typing import Callable, List, Optional, Union
-from tqdm import trange
 
 import torch
 from torchnlp.encoders import LabelEncoder
+from tqdm import trange
 
 from app.datasets.toy import Boolean, Function, FunctionName, Input, Number, Program
 from app.graph.graph import Interpreter, Node
+from app.transforms.toy import encode_value
 
 
 def uniform_nodes(n_node: int, func_encoder: LabelEncoder) -> List[Node]:
@@ -21,13 +22,11 @@ def uniform_nodes(n_node: int, func_encoder: LabelEncoder) -> List[Node]:
 
 
 def infer(
-    E: int,
     model: torch.nn.Module,
     loss_fn: torch.nn.Module,
     max_node: int,
     inputs: List[List[Union[int, bool]]],
     outputs: List[Union[int, bool]],
-    value_encoder: LabelEncoder,
     func_encoder: LabelEncoder,
     n_optimize: int,
     check_interval: int,
@@ -35,7 +34,7 @@ def infer(
     lr: float = 0.1,
 ) -> Optional[Program]:
     with torch.no_grad():
-        interpreter = Interpreter(E, model)
+        interpreter = Interpreter(model)
         n_node = max_node + len(inputs[0])
 
         nodes = uniform_nodes(n_node, func_encoder)
@@ -43,7 +42,7 @@ def infer(
         # encode output
         gt = []
         for o in outputs:
-            gt.append(value_encoder.encode(str(o)))
+            gt.append(encode_value(o))
 
         # convert inputs to constant
         graphs = []
@@ -68,7 +67,7 @@ def infer(
         loss = torch.zeros(())
         for j, graph in enumerate(graphs):
             _, out = interpreter(graph)
-            loss = loss + loss_fn(out.reshape(1, -1), gt[j].reshape(1,)).sum()
+            loss = loss + loss_fn(out.reshape(1, -1), gt[j].reshape(1, -1)).sum()
         loss = loss / len(graph)
         loss.backward()
         optimizer.step()

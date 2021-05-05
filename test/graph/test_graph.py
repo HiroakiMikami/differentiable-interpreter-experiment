@@ -66,10 +66,10 @@ def test_function_to_graph():
 
 def test_interpret_constant():
     def f(x, y, z):
-        return torch.zeros(1, 4)
+        return torch.zeros(1, 3)
 
     nodes = to_graph(func_encoder, Boolean(True), [], 1)
-    interpreter = Interpreter(4, f)
-    out, logit = interpreter(nodes)
-    assert np.array_equal(out, [0.25] * 4)
-    assert np.array_equal(logit, [0] * 4)
+    interpreter = Interpreter(f)
+    out, raw = interpreter(nodes)
+    assert np.allclose(out, [0.5, 0.5, 0])
+    assert np.array_equal(raw, [0] * 3)
