@@ -86,6 +86,10 @@ class GtModule(torch.nn.Module):
         args: [N, n_arg, E]
         p_args: [N, n_arity, n_arg]
         """
+        # normalize probs
+        # p_func = torch.softmax(p_func, dim=1)
+        # p_args = torch.softmax(p_args, dim=2)
+
         N, _, E = args.shape
         out = torch.zeros(N, E)
         for f in self.func_encoder.vocab:
@@ -131,47 +135,54 @@ class GtModule(torch.nn.Module):
             out[:, 2] = v0[:, 2]
             return out
         elif func == FunctionName.NEG:
-            out[:, 0] = -1e10  # number
+            out[:, 0] = v0[:, 0]
             out[:, 1] = 0
             out[:, 2] = -v0[:, 2]
             return out
         elif func == FunctionName.ADD:
-            out[:, 0] = -1e10
+            t = v0[:, 0] + v1[:, 0]
+            out[:, 0] = (t * 1e10) * 2 - 1e10
             out[:, 1] = 0
             out[:, 2] = v0[:, 2] + v1[:, 2]
         elif func == FunctionName.SUB:
-            out[:, 0] = -1e10
+            t = v0[:, 0] + v1[:, 0]
+            out[:, 0] = (t * 1e10) * 2 - 1e10
             out[:, 1] = 0
             out[:, 2] = v0[:, 2] - v1[:, 2]
         elif func == FunctionName.MUL:
-            out[:, 0] = -1e10
+            t = v0[:, 0] + v1[:, 0]
+            out[:, 0] = (t * 1e10) * 2 - 1e10
             out[:, 1] = 0
             out[:, 2] = v0[:, 2] * v1[:, 2]
         elif func == FunctionName.DIV:
-            out[:, 0] = -1e10
+            t = v0[:, 0] + v1[:, 0]
+            out[:, 0] = (t * 1e10) * 2 - 1e10
             out[:, 1] = 0
             d = torch.where(
                 torch.abs(v1[:, 2]) < 1, torch.ones_like(v1[:, 2]), v1[:, 2]
             )
             out[:, 2] = v0[:, 2] / d
         elif func == FunctionName.MOD:
-            out[:, 0] = -1e10
+            t = v0[:, 0] + v1[:, 0]
+            out[:, 0] = (t * 1e10) * 2 - 1e10
             out[:, 1] = 0
             d = torch.where(
                 torch.abs(v1[:, 2]) < 1, torch.ones_like(v1[:, 2]), v1[:, 2]
             )
             out[:, 2] = torch.round(v0[:, 2]).long() % torch.round(d).long()
         elif func == FunctionName.NOT:
-            out[:, 0] = 1e10
+            out[:, 0] = v0[:, 0]
             out[:, 1] = -v0[:, 1]
             out[:, 2] = 0
         elif func == FunctionName.AND:
-            out[:, 0] = 1e10
+            t = v0[:, 0] + v1[:, 0]
+            out[:, 0] = (t * 1e10) * 2 - 1e10
             x = torch.clamp(v0[:, 1] * v1[:, 1], -1e10, 1e10)
             out[:, 1] = (x * 1e10) * 2 - 1e10
             out[:, 2] = 0
         elif func == FunctionName.OR:
-            out[:, 0] = 1e10
+            t = v0[:, 0] + v1[:, 0]
+            out[:, 0] = (t * 1e10) * 2 - 1e10
             x = torch.clamp(v0[:, 1] + v1[:, 1], -1e10, 1e10)
             out[:, 1] = (x * 1e10) * 2 - 1e10
             out[:, 2] = 0
@@ -205,7 +216,8 @@ class GtModule(torch.nn.Module):
             out[:, 2] = 0
         elif func == FunctionName.WHERE:
             p = v0[:, 1]
-            out[:, 0] = -1e10
+            t = v1[:, 0] + v2[:, 0]
+            out[:, 0] = (t * 1e10) * 2 - 1e10
             out[:, 1] = 0
             out[:, 2] = p * v1[:, 2] + (1 - p) * v2[:, 2]
         return out

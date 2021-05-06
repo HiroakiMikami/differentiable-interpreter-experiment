@@ -31,7 +31,7 @@ def infer(
     n_optimize: int,
     check_interval: int,
     validate: Callable[[Program], bool],
-    lr: float = 0.1,
+    lr: float = 1,
 ) -> Optional[Program]:
     with torch.no_grad():
         interpreter = Interpreter(model)
@@ -60,14 +60,23 @@ def infer(
         params.append(node.p_func)
         params.append(node.p_args)
 
+    optimizer = torch.optim.Adam(params, lr=lr)
     for i in trange(n_optimize):
         # calc gradient of p_func and p_args
-        optimizer = torch.optim.SGD(params, lr=lr)
         optimizer.zero_grad()
         loss = torch.zeros(())
+        pred_outputs = []
         for j, graph in enumerate(graphs):
-            _, out = interpreter(graph)
+            pred, out = interpreter(graph)
             loss = loss + loss_fn(out.reshape(1, -1), gt[j].reshape(1, -1)).sum()
+            is_bool = pred[0]
+            if is_bool >= 0.5:
+                # bool
+                is_true = pred[1]
+                pred_output = True if is_true >= 0.5 else False
+            else:
+                pred_output = round(pred[2].item())
+            pred_outputs.append(pred_output)
         loss = loss / len(graph)
         loss.backward()
         optimizer.step()
@@ -79,9 +88,14 @@ def infer(
                 node.p_args[:] = torch.softmax(node.p_args, dim=1)
 
         if (i + 1) % check_interval == 0:
+            print("Synthesize: ")
+            print(f"  loss={loss.item()}")
+            print(f"  preds={pred_outputs}")
+            print(f"  GT={outputs}")
             # decode nodes
             results = [Input(i) for i in range(len(inputs[0]))]
             for node in nodes[len(inputs[0]):]:
+                print(node.p_func[1:])
                 f = torch.argmax(node.p_func[1:], dim=0)  # exclude <unk>
                 func = func_encoder.decode(f + 1)
                 if isinstance(func, FunctionName):
