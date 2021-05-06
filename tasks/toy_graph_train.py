@@ -153,11 +153,12 @@ loader = torch.utils.data.DataLoader(
     num_workers=4,
     shuffle=True,
 )
+iter_per_epoch = len(dataset) // args.batch_size
 manager = ppe.training.ExtensionsManager(
-    model, optimizer, args.n_iter,
+    model, optimizer, args.n_iter / iter_per_epoch,
     out_dir=args.out,
     extensions=[],
-    iters_per_epoch=1,
+    iters_per_epoch=iter_per_epoch,
 )
 manager.extend(
     extensions.FailOnNonNumber(),
