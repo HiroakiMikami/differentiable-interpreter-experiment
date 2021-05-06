@@ -127,7 +127,7 @@ def test_flat_dataset():
     interpreter = Interpreter()
     check_const = False
     check_func = False
-    assert len(dataset) == 5268
+    assert len(dataset) == 4394
     for i, sample in enumerate(dataset):
         if i == 100:
             break

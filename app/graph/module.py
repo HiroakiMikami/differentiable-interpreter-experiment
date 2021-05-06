@@ -2,6 +2,7 @@ import torch
 from torchnlp.encoders import LabelEncoder
 
 from app.datasets.toy import FunctionName
+from app.transforms.toy import encode_value
 
 
 class Module(torch.nn.Module):
@@ -72,3 +73,139 @@ class Module(torch.nn.Module):
         out = p_func * out  # [N, n_func, C]
         out = torch.sum(out, dim=1)  # [N, C]
         return self.decoder(out)
+
+
+class GtModule(torch.nn.Module):
+    def __init__(self, func_encoder: LabelEncoder):
+        super().__init__()
+        self.func_encoder = func_encoder
+
+    def forward(self, p_func, args, p_args) -> torch.Tensor:
+        """
+        p_func: [N, n_func]
+        args: [N, n_arg, E]
+        p_args: [N, n_arity, n_arg]
+        """
+        N, _, E = args.shape
+        out = torch.zeros(N, E)
+        for f in self.func_encoder.vocab:
+            i = self.func_encoder.encode(f).item()
+            p = p_func[:, i]
+            p = p.reshape(-1, 1)
+            if i == 0:
+                continue
+            if isinstance(f, str):
+                out = out + p * self._constant(f)[None, :]
+            else:
+                out = out + p * self._func(f, args, p_args)
+        return out
+
+    def _constant(self, v: str) -> torch.Tensor:
+        if v in set(["True", "False"]):
+            out = encode_value(True if v == "True" else False)
+        else:
+            out = encode_value(int(v))
+        out[0] = (out[0] * 1e10) * 2 - 1e10
+        out[1] = (out[1] * 1e10) * 2 - 1e10
+        return out
+
+    def _func(
+        self, func: FunctionName, args: torch.Tensor, p_args: torch.Tensor
+    ) -> torch.Tensor:
+        """
+        args: [N, n_arg, E]
+        p_args: [N, n_arity, n_arg]
+        """
+        N, _, E = args.shape
+        out = torch.zeros(N, E)
+        if args.numel() == 0:
+            out[:, 0] = -1e10
+            out[:, 2] = 1
+            return out
+        v0 = torch.sum(p_args[:, 0, :, None] * args, dim=1)
+        v1 = torch.sum(p_args[:, 1, :, None] * args, dim=1)
+        v2 = torch.sum(p_args[:, 2, :, None] * args, dim=1)
+        if func == FunctionName.ID:
+            out[:, 0] = (v0[:, 0] * 1e10) * 2 - 1e10
+            out[:, 1] = (v0[:, 1] * 1e10) * 2 - 1e10
+            out[:, 2] = v0[:, 2]
+            return out
+        elif func == FunctionName.NEG:
+            out[:, 0] = -1e10  # number
+            out[:, 1] = 0
+            out[:, 2] = -v0[:, 2]
+            return out
+        elif func == FunctionName.ADD:
+            out[:, 0] = -1e10
+            out[:, 1] = 0
+            out[:, 2] = v0[:, 2] + v1[:, 2]
+        elif func == FunctionName.SUB:
+            out[:, 0] = -1e10
+            out[:, 1] = 0
+            out[:, 2] = v0[:, 2] - v1[:, 2]
+        elif func == FunctionName.MUL:
+            out[:, 0] = -1e10
+            out[:, 1] = 0
+            out[:, 2] = v0[:, 2] * v1[:, 2]
+        elif func == FunctionName.DIV:
+            out[:, 0] = -1e10
+            out[:, 1] = 0
+            d = torch.where(
+                torch.abs(v1[:, 2]) < 1, torch.ones_like(v1[:, 2]), v1[:, 2]
+            )
+            out[:, 2] = v0[:, 2] / d
+        elif func == FunctionName.MOD:
+            out[:, 0] = -1e10
+            out[:, 1] = 0
+            d = torch.where(
+                torch.abs(v1[:, 2]) < 1, torch.ones_like(v1[:, 2]), v1[:, 2]
+            )
+            out[:, 2] = torch.round(v0[:, 2]).long() % torch.round(d).long()
+        elif func == FunctionName.NOT:
+            out[:, 0] = 1e10
+            out[:, 1] = -v0[:, 1]
+            out[:, 2] = 0
+        elif func == FunctionName.AND:
+            out[:, 0] = 1e10
+            x = torch.clamp(v0[:, 1] * v1[:, 1], -1e10, 1e10)
+            out[:, 1] = (x * 1e10) * 2 - 1e10
+            out[:, 2] = 0
+        elif func == FunctionName.OR:
+            out[:, 0] = 1e10
+            x = torch.clamp(v0[:, 1] + v1[:, 1], -1e10, 1e10)
+            out[:, 1] = (x * 1e10) * 2 - 1e10
+            out[:, 2] = 0
+        elif func == FunctionName.EQ:
+            out[:, 0] = 1e10
+            x = torch.round(v0[:, 2]) == torch.round(v1[:, 2])
+            x = x.long()
+            x = torch.clamp(x, -1e10, 1e10)
+            out[:, 1] = (x * 1e10) * 2 - 1e10
+            out[:, 2] = 0
+        elif func == FunctionName.NE:
+            out[:, 0] = 1e10
+            x = torch.round(v0[:, 2]) != torch.round(v1[:, 2])
+            x = x.long()
+            x = torch.clamp(x, -1e10, 1e10)
+            out[:, 1] = (x * 1e10) * 2 - 1e10
+            out[:, 2] = 0
+        elif func == FunctionName.LT:
+            out[:, 0] = 1e10
+            x = torch.round(v0[:, 2]) < torch.round(v1[:, 2])
+            x = x.long()
+            x = torch.clamp(x, -1e10, 1e10)
+            out[:, 1] = (x * 1e10) * 2 - 1e10
+            out[:, 2] = 0
+        elif func == FunctionName.LE:
+            out[:, 0] = 1e10
+            x = torch.round(v0[:, 2]) <= torch.round(v1[:, 2])
+            x = x.long()
+            x = torch.clamp(x, -1e10, 1e10)
+            out[:, 1] = (x * 1e10) * 2 - 1e10
+            out[:, 2] = 0
+        elif func == FunctionName.WHERE:
+            p = v0[:, 1]
+            out[:, 0] = -1e10
+            out[:, 1] = 0
+            out[:, 2] = p * v1[:, 2] + (1 - p) * v2[:, 2]
+        return out

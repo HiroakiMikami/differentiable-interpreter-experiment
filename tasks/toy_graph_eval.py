@@ -10,7 +10,7 @@ from app.datasets.toy import Example, Interpreter, Parser, Sample
 from app.graph.graph import Interpreter as InterpreterModule
 from app.graph.graph import to_graph
 from app.graph.infer import infer
-from app.graph.module import Module
+from app.graph.module import Module, GtModule
 from app.nn.toy import Decoder, Loss
 from app.transforms.graph import Collate
 
@@ -38,6 +38,8 @@ parser.add_argument("--task", type=str, default="pbe", choices=["interpreter", "
 parser.add_argument("--n-optimize", type=int, default=1000)
 parser.add_argument("--check-interval", type=int, default=100)
 parser.add_argument("--device", type=str, default="cpu", choices=["cpu", "cuda"])
+# other
+parser.add_argument("--gt", action="store_true")
 
 args = parser.parse_args()
 
@@ -55,13 +57,16 @@ collate = Collate(args.max_value)
 
 # Module
 logger.info("Initialize model")
-model = Module(
-    args.channel,
-    collate.func,
-    torch.nn.Linear(3, args.channel),
-    Decoder(args.channel)
-)
-model.load_state_dict(torch.load(args.model_path, map_location="cpu"))
+if args.gt:
+    model = GtModule(collate.func)
+else:
+    model = Module(
+        args.channel,
+        collate.func,
+        torch.nn.Linear(3, args.channel),
+        Decoder(args.channel)
+    )
+    model.load_state_dict(torch.load(args.model_path, map_location="cpu"))
 interpreter_module = InterpreterModule(model)
 loss_fn = Loss()
 

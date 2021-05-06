@@ -187,6 +187,12 @@ class Interpreter:
             pass
 
         def _run(p: Program) -> Union[bool, int]:
+            def is_bool(v):
+                return isinstance(v, bool)
+
+            def is_int(v):
+                return not isinstance(v, bool)
+
             if isinstance(p, Input):
                 if p.id < len(input):
                     return input[p.id]
@@ -203,67 +209,67 @@ class Interpreter:
                 if p.name == FunctionName.ID:
                     return args[0]
                 elif p.name == FunctionName.NEG:
-                    if isinstance(args[0], int):
+                    if is_int(args[0]):
                         return -args[0]
                     raise FailToRun()
                 elif p.name == FunctionName.ADD:
-                    if isinstance(args[0], int) and isinstance(args[1], int):
+                    if is_int(args[0]) and is_int(args[1]):
                         return args[0] + args[1]
                     raise FailToRun()
                 elif p.name == FunctionName.SUB:
-                    if isinstance(args[0], int) and isinstance(args[1], int):
+                    if is_int(args[0]) and is_int(args[1]):
                         return args[0] - args[1]
                     raise FailToRun()
                 elif p.name == FunctionName.MUL:
-                    if isinstance(args[0], int) and isinstance(args[1], int):
+                    if is_int(args[0]) and is_int(args[1]):
                         return args[0] * args[1]
                     raise FailToRun()
                 elif p.name == FunctionName.DIV:
-                    if isinstance(args[0], int) and isinstance(args[1], int):
+                    if is_int(args[0]) and is_int(args[1]):
                         if args[1] == 0:
                             raise FailToRun()
                         return args[0] // args[1]
                     raise FailToRun()
                 elif p.name == FunctionName.MOD:
-                    if isinstance(args[0], int) and isinstance(args[1], int):
+                    if is_int(args[0]) and is_int(args[1]):
                         if args[1] == 0:
                             raise FailToRun()
                         return args[0] % args[1]
                     raise FailToRun()
                 elif p.name == FunctionName.NOT:
-                    if isinstance(args[0], bool):
+                    if is_bool(args[0]):
                         return not args[0]
                     raise FailToRun()
                 elif p.name == FunctionName.AND:
-                    if isinstance(args[0], bool) and isinstance(args[1], bool):
+                    if is_bool(args[0]) and is_bool(args[1]):
                         return args[0] and args[1]
                     raise FailToRun()
                 elif p.name == FunctionName.OR:
-                    if isinstance(args[0], bool) and isinstance(args[1], bool):
+                    if is_bool(args[0]) and is_bool(args[1]):
                         return args[0] or args[1]
                     raise FailToRun()
                 elif p.name == FunctionName.EQ:
-                    if isinstance(args[0], int) and isinstance(args[1], int):
+                    if is_int(args[0]) and is_int(args[1]):
                         return args[0] == args[1]
                     raise FailToRun()
                 elif p.name == FunctionName.NE:
-                    if isinstance(args[0], int) and isinstance(args[1], int):
+                    if is_int(args[0]) and is_int(args[1]):
                         return args[0] != args[1]
                     raise FailToRun()
                 elif p.name == FunctionName.LT:
-                    if isinstance(args[0], int) and isinstance(args[1], int):
+                    if is_int(args[0]) and is_int(args[1]):
                         return args[0] < args[1]
                     raise FailToRun()
                 elif p.name == FunctionName.LE:
-                    if isinstance(args[0], int) and isinstance(args[1], int):
+                    if is_int(args[0]) and is_int(args[1]):
                         return args[0] <= args[1]
                     raise FailToRun()
                 elif p.name == FunctionName.WHERE:
-                    if not isinstance(args[0], bool):
+                    if not is_bool(args[0]):
                         raise FailToRun()
-                    if not isinstance(args[1], int):
+                    if not is_int(args[1]):
                         raise FailToRun()
-                    if not isinstance(args[2], int):
+                    if not is_int(args[2]):
                         raise FailToRun()
                     if args[0]:
                         return args[1]

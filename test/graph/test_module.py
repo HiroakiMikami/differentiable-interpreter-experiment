@@ -3,7 +3,7 @@ import torch
 from torchnlp.encoders import LabelEncoder
 
 from app.datasets.toy import FunctionName
-from app.graph.module import Module
+from app.graph.module import Module, GtModule
 
 
 def test_module_shape():
