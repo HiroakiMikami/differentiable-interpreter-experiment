@@ -12,6 +12,7 @@ from pytorch_pfn_extras.training import extensions
 from app.datasets.toy import (
     Boolean,
     Example,
+    FlatDataset,
     FlatSample,
     Function,
     Input,
@@ -19,7 +20,6 @@ from app.datasets.toy import (
     Number,
     Parser,
     Program,
-    RandomFlatDataset,
 )
 from app.graph.module import Module
 from app.nn.toy import Decoder, Loss
@@ -63,7 +63,7 @@ else:
 
 # train dataset
 logger.info("Initialize dataset")
-dataset = RandomFlatDataset(np.random.RandomState(0), args.max_value)
+dataset = FlatDataset(np.random.RandomState(0), args.max_value)
 collate = Collate(args.max_value)
 if args.n_sample != 0:
     tmp = []
@@ -151,6 +151,7 @@ loader = torch.utils.data.DataLoader(
     batch_size=args.batch_size,
     collate_fn=collate,
     num_workers=4,
+    shuffle=True,
 )
 manager = ppe.training.ExtensionsManager(
     model, optimizer, args.n_iter,

@@ -1,3 +1,4 @@
+import itertools
 from dataclasses import dataclass
 from enum import Enum, auto
 from typing import List, Optional, Tuple, Union
@@ -391,7 +392,7 @@ class FlatSample:
     example: Example
 
 
-class RandomFlatDataset(torch.utils.data.IterableDataset):
+class FlatDataset(torch.utils.data.Dataset):
     def __init__(
         self,
         rng: np.random.RandomState,
@@ -408,57 +409,27 @@ class RandomFlatDataset(torch.utils.data.IterableDataset):
             self.functions[str(-i)] = -i
         self.interpreter = Interpreter()
 
-    def __iter__(self):
-        worker_info = torch.utils.data.get_worker_info()
-        worker_id = 0
-        if worker_info is not None:
-            worker_id = worker_info.id
-        seed = self.rng.randint(0, (2 << 31) - 1) + worker_id
-        rng = np.random.RandomState(seed)
+        self._examples = []
+        # Constant
+        self._examples.append(FlatSample("True", Example([], True)))
+        self._examples.append(FlatSample("False", Example([], False)))
+        for i in range(0, max_int):
+            self._examples.append(FlatSample(str(i), Example([], i)))
+            self._examples.append(FlatSample(str(-i), Example([], -i)))
+        # Function
+        values = [True, False] + list(range(max_int)) + [-i for i in range(max_int)]
+        for func in FunctionName.__members__.values():
+            f = Function(func, [Input(i) for i in range(FunctionName.arity(func))])
+            vs = []
+            for j in range(FunctionName.arity(func)):
+                vs.append(values)
+            for args in itertools.product(*vs):
+                out = self.interpreter.run(f, args)
+                if out is not None:
+                    self._examples.append(FlatSample(func, Example(args, out)))
 
-        class InternalIterator:
-            def __init__(self, parent):
-                self.parent = parent
+    def __len__(self) -> int:
+        return len(self._examples)
 
-            def __next__(self) -> FlatSample:
-                f = self.parent.rng.choice(list(self.parent.functions.keys()))
-                if isinstance(f, str):
-                    # Constant
-                    return FlatSample(f, Example([], self.parent.functions[f]))
-                else:
-                    # function
-                    while True:
-                        f = self.parent.functions[f]
-                        arity = FunctionName.arity(f)
-                        inputs = []
-                        args = []
-                        for _ in range(arity):
-                            if self.parent.rng.choice([True, False]):
-                                # bool
-                                inputs.append(
-                                    bool(self.parent.rng.choice([True, False]))
-                                )
-                                args.append(Boolean(inputs[-1]))
-                            else:
-                                # int
-                                inputs.append(
-                                    int(rng.randint(
-                                        -(self.parent.max_int + 1),
-                                        self.parent.max_int + 1,
-                                    ))
-                                )
-                                args.append(Number(inputs[-1]))
-                        p = Function(f, args)
-                        out = self.parent.interpreter.run(p, [])
-
-                        def cond(x):
-                            if x is None:
-                                return True
-                            else:
-                                return abs(x) > self.parent.max_int
-
-                        if cond(out):
-                            continue
-                        return FlatSample(f, Example(inputs, out))
-
-        return InternalIterator(self)
+    def __getitem__(self, index) -> FlatSample:
+        return self._examples[index]

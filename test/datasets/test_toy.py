@@ -3,6 +3,7 @@ import torch
 
 from app.datasets.toy import (
     Boolean,
+    FlatDataset,
     Function,
     FunctionName,
     Input,
@@ -10,7 +11,6 @@ from app.datasets.toy import (
     Number,
     Parser,
     RandomDataset,
-    RandomFlatDataset,
 )
 
 
@@ -123,10 +123,11 @@ def test_multiworker_dataset():
 
 
 def test_flat_dataset():
-    dataset = RandomFlatDataset(np.random.RandomState(0), 100)
+    dataset = FlatDataset(np.random.RandomState(0), 10)
     interpreter = Interpreter()
     check_const = False
     check_func = False
+    assert len(dataset) == 5268
     for i, sample in enumerate(dataset):
         if i == 100:
             break
