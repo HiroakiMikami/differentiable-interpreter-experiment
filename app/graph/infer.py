@@ -31,7 +31,30 @@ def infer(
     n_optimize: int,
     check_interval: int,
     validate: Callable[[Program], bool],
-    lr: float = 10,  # 0.5,
+) -> Optional[Program]:
+    lrs = [1e-1, 1e0, 1e1, 1e2, 1e4, 1e8]
+    for lr in lrs:
+        print(f"LR={lr}")
+        x = _infer(
+            model, loss_fn, max_node, inputs, outputs, func_encoder,
+            n_optimize, check_interval, validate, lr
+        )
+        if x is not None:
+            return x
+    return None
+
+
+def _infer(
+    model: torch.nn.Module,
+    loss_fn: torch.nn.Module,
+    max_node: int,
+    inputs: List[List[Union[int, bool]]],
+    outputs: List[Union[int, bool]],
+    func_encoder: LabelEncoder,
+    n_optimize: int,
+    check_interval: int,
+    validate: Callable[[Program], bool],
+    lr: float,
 ) -> Optional[Program]:
     kldiv = torch.nn.KLDivLoss()
 

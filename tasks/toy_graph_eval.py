@@ -10,7 +10,7 @@ from app.datasets.toy import Example, Interpreter, Parser, Sample
 from app.graph.graph import Interpreter as InterpreterModule
 from app.graph.graph import to_graph
 from app.graph.infer import infer
-from app.graph.module import Module, GtModule
+from app.graph.module import GtModule, Module
 from app.nn.toy import Decoder, Loss
 from app.transforms.graph import Collate
 
@@ -36,7 +36,7 @@ parser.add_argument("--max-nodes", type=int, default=8)
 # evaluation
 parser.add_argument("--task", type=str, default="pbe", choices=["interpreter", "pbe"])
 parser.add_argument("--n-optimize", type=int, default=1000)
-parser.add_argument("--check-interval", type=int, default=100)
+parser.add_argument("--check-interval", type=int, default=10)
 parser.add_argument("--device", type=str, default="cpu", choices=["cpu", "cuda"])
 # other
 parser.add_argument("--gt", action="store_true")
