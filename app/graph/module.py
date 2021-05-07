@@ -169,7 +169,7 @@ class GtModule(torch.nn.Module):
             d = torch.where(
                 torch.abs(v1[:, 2]) < 1, torch.ones_like(v1[:, 2]), v1[:, 2]
             )
-            out[:, 2] = v0[:, 2] / d
+            out[:, 2] = torch.floor(v0[:, 2] / d)
         elif func == FunctionName.MOD:
             t = v0[:, 0] + v1[:, 0]
             out[:, 0] = (t * 1e10) * 2 - 1e10
@@ -179,8 +179,8 @@ class GtModule(torch.nn.Module):
             )
             out[:, 2] = torch.round(v0[:, 2]).long() % torch.round(d).long()
         elif func == FunctionName.NOT:
-            out[:, 0] = v0[:, 0]
-            out[:, 1] = -v0[:, 1]
+            out[:, 0] = (v0[:, 0] * 1e10) * 2 - 1e10
+            out[:, 1] = (v0[:, 1] * -1e10) * 2 + 1e10
             out[:, 2] = 0
         elif func == FunctionName.AND:
             t = v0[:, 0] + v1[:, 0]

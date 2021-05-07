@@ -2,8 +2,9 @@ import numpy as np
 import torch
 from torchnlp.encoders import LabelEncoder
 
-from app.datasets.toy import FunctionName
+from app.datasets.toy import FlatDataset, FunctionName
 from app.graph.module import GtModule, Module
+from app.transforms.graph import Collate
 
 
 def test_module_shape():
@@ -41,3 +42,24 @@ def test_empty_arg():
     p_args = torch.rand(2, 3, 0)
     out = module(p_func, args, p_args)
     assert out.shape == (2, 5)
+
+
+def test_gt_module():
+    max_int = 10
+    collate = Collate(max_int)
+    module = GtModule(collate.func)
+    dataset = FlatDataset(np.random.RandomState(0), max_int)
+    for data in dataset:
+        p_func, p_args, _args, gt = collate([data])
+        gt = gt[0]
+        raw = module(p_func, _args, p_args)[0]
+        x = raw.clone()
+        x[0] = torch.sigmoid(raw[0])
+        x[1] = torch.sigmoid(raw[1])
+        assert np.allclose(x[0], gt[0]), f"{data} {raw} {x} {gt}"
+        if x[0] > 0.5:
+            # bool
+            assert np.allclose(x[1], gt[1]), f"{data} {raw} {x} {gt}"
+        else:
+            # int
+            assert np.allclose(x[2], gt[2]), f"{data} {raw} {x} {gt}"
