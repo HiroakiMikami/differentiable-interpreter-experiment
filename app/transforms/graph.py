@@ -32,17 +32,14 @@ class Collate:
         batched_args = []
         batched_output = []
         for sample in batch:
-            batched_p_func.append(
-                torch.nn.functional.one_hot(
-                    self.func.encode(sample.function),
-                    num_classes=self.func.vocab_size,
-                ).float()
-            )
+            p_func = torch.full(size=(self.func.vocab_size,), fill_value=-1e10)
+            p_func[self.func.encode(sample.function)] = 1e10
+            batched_p_func.append(p_func)
 
-            p_args = torch.zeros(3, max_n_args)
+            p_args = torch.full(size=(3, max_n_args), fill_value=-1e10)
             args = torch.zeros(max_n_args, 3)
             for i, v in enumerate(sample.example.inputs):
-                p_args[i, i] = 1.0
+                p_args[i, i] = 1e10
                 args[i, :] = encode_value(v)
             batched_p_args.append(p_args)
             batched_args.append(args)

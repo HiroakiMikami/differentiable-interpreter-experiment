@@ -6,8 +6,6 @@ from torchnlp.encoders import LabelEncoder
 
 from app.datasets.toy import Boolean, Function, Input, Number, Program
 
-# , FunctionName
-
 
 @dataclass
 class Node:
@@ -22,7 +20,7 @@ def to_graph(
     n_max_arity: int = 3,
     n_args: int = 0,
 ) -> List[Node]:
-    p_func = torch.zeros(func_encoder.vocab_size)
+    p_func = torch.full(size=(func_encoder.vocab_size,), fill_value=-1e10)
     if isinstance(p, Input):
         v = inputs[p.id]
         if isinstance(v, bool):
@@ -31,8 +29,8 @@ def to_graph(
             p = Number(v)
         return to_graph(func_encoder, p, [], n_max_arity, n_args)
     elif isinstance(p, Number) or isinstance(p, Boolean):
-        p_args = torch.zeros(n_max_arity, n_args)
-        p_func[func_encoder.encode(str(p.value))] = 1
+        p_args = torch.full(size=(n_max_arity, n_args), fill_value=-1e10)
+        p_func[func_encoder.encode(str(p.value))] = 1e10
         return [Node(p_func, p_args)]
     elif isinstance(p, Function):
         nodes = []
@@ -43,10 +41,10 @@ def to_graph(
             n_args += len(arg_nodes)
             nodes.extend(arg_nodes)
             arg_idx.append(n_args - 1)
-        p_args = torch.zeros(n_max_arity, n_args)
-        p_func[func_encoder.encode(p.name)] = 1
+        p_args = torch.full(size=(n_max_arity, n_args), fill_value=-1e10)
+        p_func[func_encoder.encode(p.name)] = 1e10
         for i, idx in enumerate(arg_idx):
-            p_args[i, idx] = 1
+            p_args[i, idx] = 1e10
         nodes.append(Node(p_func, p_args))
         return nodes
     else:

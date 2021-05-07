@@ -49,6 +49,12 @@ class Module(torch.nn.Module):
         """
         N, n_func = p_func.shape
         N, n_arity, n_arg = p_args.shape
+
+        # normalize probs
+        p_func = torch.softmax(p_func[:, 1:], dim=1)
+        p_func = torch.cat([torch.zeros(N, 1, device=p_func.device), p_func], dim=1)
+        p_args = torch.softmax(p_args, dim=2)
+
         args = self.encoder(args)  # [N, n_arg, C]
         N, n_arg, C = args.shape
         args = args.reshape(N, 1, n_arg, C)
@@ -86,11 +92,13 @@ class GtModule(torch.nn.Module):
         args: [N, n_arg, E]
         p_args: [N, n_arity, n_arg]
         """
-        # normalize probs
-        # p_func = torch.softmax(p_func, dim=1)
-        # p_args = torch.softmax(p_args, dim=2)
-
         N, _, E = args.shape
+
+        # normalize probs
+        p_func = torch.softmax(p_func[:, 1:], dim=1)
+        p_func = torch.cat([torch.zeros(N, 1, device=p_func.device), p_func], dim=1)
+        p_args = torch.softmax(p_args, dim=2)
+
         out = torch.zeros(N, E)
         for f in self.func_encoder.vocab:
             i = self.func_encoder.encode(f).item()
@@ -135,7 +143,7 @@ class GtModule(torch.nn.Module):
             out[:, 2] = v0[:, 2]
             return out
         elif func == FunctionName.NEG:
-            out[:, 0] = v0[:, 0]
+            out[:, 0] = (v0[:, 0] * 1e10) * 2 - 1e10
             out[:, 1] = 0
             out[:, 2] = -v0[:, 2]
             return out

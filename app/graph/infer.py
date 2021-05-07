@@ -12,10 +12,10 @@ from app.transforms.toy import encode_value
 def uniform_nodes(n_node: int, func_encoder: LabelEncoder) -> List[Node]:
     nodes = []
     for i in range(n_node):
-        p_func = torch.full((func_encoder.vocab_size,), 1.0 / func_encoder.vocab_size)
+        p_func = torch.zeros(func_encoder.vocab_size)
         p_func.requires_grad = True
         # TODO max arity
-        p_args = torch.full((3, i), 1.0 / i if i != 0 else 0.0)
+        p_args = torch.zeros(3, i)
         p_args.requires_grad = True
         nodes.append(Node(p_func, p_args))
     return nodes
@@ -75,9 +75,9 @@ def _infer(
             tmp = nodes
             for i, x in enumerate(xs):
                 tmp[i] = Node(tmp[i].p_func.clone(), tmp[i].p_args.clone())
-                tmp[i].p_func[:] = 0.0
-                tmp[i].p_func[func_encoder.encode(str(x))] = 1.0
-                tmp[i].p_args[:] = 0.0  # arity == 0
+                tmp[i].p_func[:] = -1e10
+                tmp[i].p_func[func_encoder.encode(str(x))] = 1e10
+                tmp[i].p_args[:] = 0.0
             graphs.append(tmp)
 
     params = []
@@ -124,12 +124,6 @@ def _infer(
             loss.backward()
         optimizer.step()
 
-        # normalize prob
-        with torch.no_grad():
-            for node in nodes[len(inputs[0]):]:
-                node.p_func[1:] = torch.softmax(node.p_func[1:], dim=0)
-                node.p_args[:] = torch.softmax(node.p_args[:], dim=1)
-
         if (i + 1) % check_interval == 0:
             print("Synthesize: ")
             print(
@@ -143,6 +137,14 @@ def _infer(
                 # print(node.p_func[1:])
                 # print(node.p_func[1:][f])
                 f = torch.argmax(node.p_func[1:], dim=0)  # exclude <unk>
+
+                # Discretize p_func
+                """
+                with torch.no_grad():
+                    node.p_func[:] = 0.0
+                    node.p_func[f + 1] = 1.0
+                """
+
                 func = func_encoder.decode(f + 1)
                 if isinstance(func, FunctionName):
                     if node.p_args.numel() == 0:
@@ -154,6 +156,13 @@ def _infer(
                     for i in range(FunctionName.arity(func)):
                         arg = args_tensor[i].item()
                         args.append(results[arg])
+
+                        # Discretize p_args
+                        """
+                        with torch.no_grad():
+                            node.p_args[i, :] = 0
+                            node.p_args[i, args_tensor[i].item()] = 1.0
+                        """
                     results.append(Function(func, args))
                 else:
                     # constant
