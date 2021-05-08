@@ -2,11 +2,14 @@ from typing import Callable, List, Optional, Union
 
 import torch
 from torchnlp.encoders import LabelEncoder
-from tqdm import trange
 
+import tempfile
+import pytorch_pfn_extras as ppe
+from pytorch_pfn_extras.training import extensions
 from app.datasets.toy import Boolean, Function, FunctionName, Input, Number, Program
 from app.graph.graph import Interpreter, Node
 from app.transforms.toy import encode_value
+from app.pytorch_pfn_extras import Trigger
 
 
 def uniform_nodes(n_node: int, func_encoder: LabelEncoder) -> List[Node]:
@@ -85,97 +88,155 @@ def _infer(
         params.append(node.p_func)
         params.append(node.p_args)
 
-    optimizer = torch.optim.Adam(params, lr=lr)
-    for i in trange(n_optimize):
-        # calc gradient of p_func and p_args
-        optimizer.zero_grad()
-        outloss = torch.zeros(())
-        klloss = torch.zeros(())
-        pred_outputs = []
-        for j, graph in enumerate(graphs):
-            for node in graph:
-                klloss = klloss + kldiv(
-                    torch.log(torch.clamp_min(node.p_func, 1e-5)),
-                    torch.full_like(node.p_func, 1.0 / node.p_func.shape[0])
-                )
-                if node.p_args.shape[1] != 0:
-                    klloss = klloss + kldiv(
-                        torch.log(torch.clamp_min(node.p_args.permute(1, 0), 1e-5)),
-                        torch.full_like(
-                            node.p_args, 1.0 / node.p_args.shape[1]
-                        ).permute(1, 0)
-                    )
-            pred, out = interpreter(graph)
-            outloss = outloss + loss_fn(out.reshape(1, -1), gt[j].reshape(1, -1)).sum()
-            is_bool = pred[0]
-            if is_bool >= 0.5:
-                # bool
-                is_true = pred[1]
-                pred_output = True if is_true >= 0.5 else False
-            else:
-                if torch.isinf(pred[2]) or torch.isnan(pred[2]):
-                    pred_output = None
-                else:
-                    pred_output = round(pred[2].item())
-            pred_outputs.append(pred_output)
-        outloss = outloss / len(graph)
-        loss = outloss - klloss
-        with torch.autograd.detect_anomaly():
-            loss.backward()
-        optimizer.step()
+    # optimizer = torch.optim.Adam(params, lr=lr)
+    optimizer = torch.optim.Adam(
+        params,
+        lr=lr,
+        betas=(0.5, 0.999),
+        weight_decay=1e-3,
+    )
 
-        if (i + 1) % check_interval == 0:
-            print("Synthesize: ")
-            print(
-                f"  loss={loss.item()} outloss={outloss.item()} klloss={-klloss.item()}"
+    with tempfile.TemporaryDirectory() as tmpdir:
+        manager = ppe.training.ExtensionsManager(
+            model, optimizer, n_optimize / check_interval,
+            out_dir=tmpdir,
+            extensions=[],
+            iters_per_epoch=check_interval,
+        )
+        manager.extend(
+            extensions.FailOnNonNumber(),
+            trigger=Trigger(check_interval, n_optimize)
+        )
+        manager.extend(
+            extensions.LogReport(
+                trigger=Trigger(check_interval, n_optimize),
+                filename="log.json",
             )
-            print(f"  preds={pred_outputs}")
-            print(f"  GT={outputs}")
-            # decode nodes
-            results = [Input(i) for i in range(len(inputs[0]))]
-            for node in nodes[len(inputs[0]):]:
-                # print(node.p_func[1:])
-                # print(node.p_func[1:][f])
-                f = torch.argmax(node.p_func[1:], dim=0)  # exclude <unk>
+        )
+        manager.extend(
+            extensions.PrintReport(),
+            trigger=Trigger(check_interval, n_optimize),
+        )
+        manager.extend(extensions.ProgressBar())
 
-                # Discretize p_func
-                """
+        for i in range(n_optimize):
+            # calc gradient of p_func and p_args
+            with manager.run_iteration():
+                optimizer.zero_grad()
+                outloss = torch.zeros(())
+                klloss = torch.zeros(())
+                pred_outputs = []
+                for j, graph in enumerate(graphs):
+                    for node in graph:
+                        klloss = klloss + kldiv(
+                            torch.log(torch.clamp_min(node.p_func, 1e-5)),
+                            torch.full_like(node.p_func, 1.0 / node.p_func.shape[0])
+                        )
+                        if node.p_args.shape[1] != 0:
+                            klloss = klloss + kldiv(
+                                torch.log(torch.clamp_min(node.p_args.permute(1, 0), 1e-5)),
+                                torch.full_like(
+                                    node.p_args, 1.0 / node.p_args.shape[1]
+                                ).permute(1, 0)
+                            )
+                    pred, out = interpreter(graph)
+                    outloss = outloss + loss_fn(out.reshape(1, -1), gt[j].reshape(1, -1)).sum()
+                    is_bool = pred[0]
+                    if is_bool >= 0.5:
+                        # bool
+                        is_true = pred[1]
+                        pred_output = True if is_true >= 0.5 else False
+                    else:
+                        if torch.isinf(pred[2]) or torch.isnan(pred[2]):
+                            pred_output = None
+                        else:
+                            pred_output = round(pred[2].item())
+                    pred_outputs.append(pred_output)
+                outloss = outloss / len(graph)
+                loss = outloss  # - klloss
+                try:
+                    with torch.autograd.detect_anomaly():
+                        loss.backward()
+                except:  # pass
+                    break
+                torch.nn.utils.clip_grad_value_(params, 0.1)
+                grad_norm = 0
+                for p in params:
+                    if p.numel() == 0:
+                        continue
+                    grad_norm += torch.norm(p.grad.reshape(-1), dim=0).mean()
+                ppe.reporting.report({"grad_norm": grad_norm / len(params)})
+                optimizer.step()
+                ppe.reporting.report({"loss": loss.item()})
                 with torch.no_grad():
-                    node.p_func[:] = 0.0
-                    node.p_func[f + 1] = 1.0
-                """
+                    # Add smoothing
+                    smoothing = 0.01
+                    for node in nodes[len(inputs[0]):]:
+                        p = torch.softmax(node.p_func[1:], dim=0)
+                        p[:] += smoothing / p.shape[0]
+                        p[p.argmax(dim=0)] -= smoothing
+                        node.p_func[1:] = torch.log(p / (1 - p))
+                        if node.p_args.numel() == 0:
+                            continue
+                        node.p_func[:] = torch.clamp(node.p_func, -1e10, 1e10)
 
-                func = func_encoder.decode(f + 1)
-                if isinstance(func, FunctionName):
-                    if node.p_args.numel() == 0:
-                        # invalid
-                        print(f"invalid: {func} for the first node")
-                        break
-                    args = []
-                    args_tensor = torch.argmax(node.p_args, dim=1)  # [max_arity]
-                    for i in range(FunctionName.arity(func)):
-                        arg = args_tensor[i].item()
-                        args.append(results[arg])
+                        p = torch.softmax(node.p_args, dim=1)
+                        p[:] += smoothing / p.shape[1]
+                        m = p.argmax(dim=1)
+                        for j in range(3):
+                            p[j, m[j]] -= smoothing
+                        node.p_args[:] = torch.log(p / (1 - p))
+                        node.p_args[:, :] = torch.clamp(node.p_args, -1e10, 1e10)
 
-                        # Discretize p_args
+                if (i + 1) % check_interval == 0:
+                    print("Synthesize: ")
+                    print(f"  preds={pred_outputs}")
+                    print(f"  GT={outputs}")
+                    # decode nodes
+                    results = [Input(i) for i in range(len(inputs[0]))]
+                    for node in nodes[len(inputs[0]):]:
+                        # print(node.p_func[1:])
+                        # print(node.p_func[1:][f])
+                        f = torch.argmax(node.p_func[1:], dim=0)  # exclude <unk>
+
+                        # Discretize p_func
                         """
                         with torch.no_grad():
-                            node.p_args[i, :] = 0
-                            node.p_args[i, args_tensor[i].item()] = 1.0
+                            node.p_func[:] = 0.0
+                            node.p_func[f + 1] = 1.0
                         """
-                    results.append(Function(func, args))
-                else:
-                    # constant
-                    if func in set(["True", "False"]):
-                        # bool
-                        results.append(Boolean(True if func == "True" else False))
-                    else:
-                        # int
-                        results.append(Number(int(func)))
 
-            if len(results) != 0:
-                p = results[-1]
-                print(p)
-                if validate(p):
-                    return p
-    return None
+                        func = func_encoder.decode(f + 1)
+                        if isinstance(func, FunctionName):
+                            if node.p_args.numel() == 0:
+                                # invalid
+                                print(f"invalid: {func} for the first node")
+                                break
+                            args = []
+                            args_tensor = torch.argmax(node.p_args, dim=1)  # [max_arity]
+                            for i in range(FunctionName.arity(func)):
+                                arg = args_tensor[i].item()
+                                args.append(results[arg])
+
+                                # Discretize p_args
+                                """
+                                with torch.no_grad():
+                                    node.p_args[i, :] = 0
+                                    node.p_args[i, args_tensor[i].item()] = 1.0
+                                """
+                            results.append(Function(func, args))
+                        else:
+                            # constant
+                            if func in set(["True", "False"]):
+                                # bool
+                                results.append(Boolean(True if func == "True" else False))
+                            else:
+                                # int
+                                results.append(Number(int(func)))
+
+                    if len(results) != 0:
+                        p = results[-1]
+                        print(p)
+                        if validate(p):
+                            return p
+        return None
