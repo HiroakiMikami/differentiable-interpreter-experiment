@@ -1,15 +1,15 @@
+import tempfile
 from typing import Callable, List, Optional, Union
 
+import pytorch_pfn_extras as ppe
 import torch
+from pytorch_pfn_extras.training import extensions
 from torchnlp.encoders import LabelEncoder
 
-import tempfile
-import pytorch_pfn_extras as ppe
-from pytorch_pfn_extras.training import extensions
 from app.datasets.toy import Boolean, Function, FunctionName, Input, Number, Program
 from app.graph.graph import Interpreter, Node
-from app.transforms.toy import encode_value
 from app.pytorch_pfn_extras import Trigger
+from app.transforms.toy import encode_value
 
 
 def uniform_nodes(n_node: int, func_encoder: LabelEncoder) -> List[Node]:
@@ -18,7 +18,7 @@ def uniform_nodes(n_node: int, func_encoder: LabelEncoder) -> List[Node]:
         p_func = torch.zeros(func_encoder.vocab_size)
         p_func.requires_grad = True
         # TODO max arity
-        p_args = torch.zeros(3, i)
+        p_args = torch.zeros(func_encoder.vocab_size, 3, i)
         p_args.requires_grad = True
         nodes.append(Node(p_func, p_args))
     return nodes
@@ -35,7 +35,7 @@ def infer(
     check_interval: int,
     validate: Callable[[Program], bool],
 ) -> Optional[Program]:
-    lrs = [1e-1, 1e0, 1e1, 1e2, 1e4, 1e8]
+    lrs = [1]  # [1e-1, 1e0, 1e1, 1e2, 1e4, 1e8]
     for lr in lrs:
         print(f"LR={lr}")
         x = _infer(
@@ -126,39 +126,42 @@ def _infer(
                 outloss = torch.zeros(())
                 klloss = torch.zeros(())
                 pred_outputs = []
-                for j, graph in enumerate(graphs):
-                    for node in graph:
-                        klloss = klloss + kldiv(
-                            torch.log(torch.clamp_min(node.p_func, 1e-5)),
-                            torch.full_like(node.p_func, 1.0 / node.p_func.shape[0])
-                        )
-                        if node.p_args.shape[1] != 0:
+                with torch.autograd.detect_anomaly():
+                    for j, graph in enumerate(graphs):
+                        for node in graph:
                             klloss = klloss + kldiv(
-                                torch.log(torch.clamp_min(node.p_args.permute(1, 0), 1e-5)),
-                                torch.full_like(
-                                    node.p_args, 1.0 / node.p_args.shape[1]
-                                ).permute(1, 0)
+                                torch.log(torch.clamp_min(node.p_func, 1e-5)),
+                                torch.full_like(node.p_func, 1.0 / node.p_func.shape[0])
                             )
-                    pred, out = interpreter(graph)
-                    outloss = outloss + loss_fn(out.reshape(1, -1), gt[j].reshape(1, -1)).sum()
-                    is_bool = pred[0]
-                    if is_bool >= 0.5:
-                        # bool
-                        is_true = pred[1]
-                        pred_output = True if is_true >= 0.5 else False
-                    else:
-                        if torch.isinf(pred[2]) or torch.isnan(pred[2]):
-                            pred_output = None
+                            if node.p_args.shape[1] != 0:
+                                klloss = klloss + kldiv(
+                                    torch.log(
+                                        torch.clamp_min(
+                                            node.p_args.permute(0, 2, 1), 1e-5
+                                        )
+                                    ),
+                                    torch.full_like(
+                                        node.p_args, 1.0 / node.p_args.shape[1]
+                                    ).permute(0, 2, 1)
+                                )
+                        pred, out = interpreter(graph)
+                        outloss = outloss + loss_fn(
+                            out.reshape(1, -1), gt[j].reshape(1, -1)
+                        ).sum()
+                        is_bool = pred[0]
+                        if is_bool >= 0.5:
+                            # bool
+                            is_true = pred[1]
+                            pred_output = True if is_true >= 0.5 else False
                         else:
-                            pred_output = round(pred[2].item())
-                    pred_outputs.append(pred_output)
-                outloss = outloss / len(graph)
-                loss = outloss  # - klloss
-                try:
-                    with torch.autograd.detect_anomaly():
-                        loss.backward()
-                except:  # pass
-                    break
+                            if torch.isinf(pred[2]) or torch.isnan(pred[2]):
+                                pred_output = None
+                            else:
+                                pred_output = round(pred[2].item())
+                        pred_outputs.append(pred_output)
+                    outloss = outloss / len(graph)
+                    loss = outloss  # - klloss
+                    loss.backward()
                 torch.nn.utils.clip_grad_value_(params, 0.1)
                 grad_norm = 0
                 for p in params:
@@ -166,6 +169,14 @@ def _infer(
                         continue
                     grad_norm += torch.norm(p.grad.reshape(-1), dim=0).mean()
                 ppe.reporting.report({"grad_norm": grad_norm / len(params)})
+                with torch.no_grad():
+                    for i, v in enumerate(func_encoder.vocab):
+                        print(v)
+                        print(f"  {nodes[-1].p_func.grad[i].item()}")
+                        for j, p in enumerate(nodes[-1].p_args.grad[i]):
+                            print(f"  {j}-th arg: {p} ({nodes[-1].p_args[i, j]})")
+                    print("---")
+
                 optimizer.step()
                 ppe.reporting.report({"loss": loss.item()})
                 with torch.no_grad():
@@ -180,13 +191,15 @@ def _infer(
                             continue
                         node.p_func[:] = torch.clamp(node.p_func, -1e10, 1e10)
 
-                        p = torch.softmax(node.p_args, dim=1)
-                        p[:] += smoothing / p.shape[1]
-                        m = p.argmax(dim=1)
-                        for j in range(3):
-                            p[j, m[j]] -= smoothing
+                        # [n_func, max_arity, n_arg]
+                        p = torch.softmax(node.p_args, dim=2)
+                        p[:] += smoothing / p.shape[2]
+                        m = p.argmax(dim=2)
+                        for k in range(func_encoder.vocab_size):
+                            for j in range(3):
+                                p[k, j, m[k, j]] -= smoothing
                         node.p_args[:] = torch.log(p / (1 - p))
-                        node.p_args[:, :] = torch.clamp(node.p_args, -1e10, 1e10)
+                        node.p_args[:, :, :] = torch.clamp(node.p_args, -1e10, 1e10)
 
                 if (i + 1) % check_interval == 0:
                     print("Synthesize: ")
@@ -213,9 +226,10 @@ def _infer(
                                 print(f"invalid: {func} for the first node")
                                 break
                             args = []
-                            args_tensor = torch.argmax(node.p_args, dim=1)  # [max_arity]
+                            # [n_func, max_arity]
+                            args_tensor = torch.argmax(node.p_args, dim=2)
                             for i in range(FunctionName.arity(func)):
-                                arg = args_tensor[i].item()
+                                arg = args_tensor[f + 1, i].item()
                                 args.append(results[arg])
 
                                 # Discretize p_args
@@ -229,7 +243,9 @@ def _infer(
                             # constant
                             if func in set(["True", "False"]):
                                 # bool
-                                results.append(Boolean(True if func == "True" else False))
+                                results.append(
+                                    Boolean(True if func == "True" else False)
+                                )
                             else:
                                 # int
                                 results.append(Number(int(func)))

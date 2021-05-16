@@ -74,7 +74,7 @@ parser = Parser()
 interpreter = Interpreter()
 
 # evaluation
-for sample in eval_dataset:
+for sample in [eval_dataset[1]]:
     name = sample["name"]
     code = sample["program"]
     examples = sample["examples"]

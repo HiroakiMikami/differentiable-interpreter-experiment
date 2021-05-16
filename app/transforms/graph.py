@@ -22,6 +22,7 @@ class Collate:
         self.parser = Parser()
 
     def __call__(self, batch: List[FlatSample]):
+        n_func = self.func.vocab_size
         max_n_args = 0
         for sample in batch:
             max_n_args = max(max_n_args, len(sample.example.inputs))
@@ -32,14 +33,14 @@ class Collate:
         batched_args = []
         batched_output = []
         for sample in batch:
-            p_func = torch.full(size=(self.func.vocab_size,), fill_value=-1e10)
+            p_func = torch.full(size=(n_func,), fill_value=-1e10)
             p_func[self.func.encode(sample.function)] = 1e10
             batched_p_func.append(p_func)
 
-            p_args = torch.full(size=(3, max_n_args), fill_value=-1e10)
+            p_args = torch.full(size=(n_func, 3, max_n_args), fill_value=-1e10)
             args = torch.zeros(max_n_args, 3)
             for i, v in enumerate(sample.example.inputs):
-                p_args[i, i] = 1e10
+                p_args[self.func.encode(sample.function), i, i] = 1e10
                 args[i, :] = encode_value(v)
             batched_p_args.append(p_args)
             batched_args.append(args)

@@ -14,7 +14,7 @@ def test_module_shape():
     out = module(
         torch.rand(2, 2),
         torch.rand(2, 7, 5),
-        torch.rand(2, 3, 7),
+        torch.rand(2, 2, 3, 7),
     )
     assert out.shape == (2, 5)
 
@@ -25,7 +25,7 @@ def test_arity_mask():
     )
     p_func = torch.rand(2, 2)
     args = torch.rand(2, 2, 5)
-    p_args = torch.rand(2, 3, 2)
+    p_args = torch.rand(2, 2, 3, 2)
     with torch.no_grad():
         out0 = module(p_func, args, p_args)
         args[2:] = 0
@@ -39,7 +39,7 @@ def test_empty_arg():
     )
     p_func = torch.rand(2, 2)
     args = torch.rand(2, 0, 5)
-    p_args = torch.rand(2, 3, 0)
+    p_args = torch.rand(2, 2, 3, 0)
     out = module(p_func, args, p_args)
     assert out.shape == (2, 5)
 

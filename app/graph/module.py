@@ -45,22 +45,22 @@ class Module(torch.nn.Module):
         """
         p_func: [N, n_func]
         args: [N, n_arg, E]
-        p_args: [N, n_arity, n_arg]
+        p_args: [N, n_func, n_arity, n_arg]
         """
         N, n_func = p_func.shape
-        N, n_arity, n_arg = p_args.shape
+        N, _, n_arity, n_arg = p_args.shape
 
         # normalize probs
         p_func = torch.softmax(p_func[:, 1:], dim=1)
         p_func = torch.cat([torch.zeros(N, 1, device=p_func.device), p_func], dim=1)
-        p_args = torch.softmax(p_args, dim=2)
+        p_args = torch.softmax(p_args, dim=3)
 
         args = self.encoder(args)  # [N, n_arg, C]
         N, n_arg, C = args.shape
-        args = args.reshape(N, 1, n_arg, C)
-        p_args = p_args.reshape(N, n_arity, n_arg, 1)
-        args = p_args * args  # [N, n_arity, n_arg, C]
-        args = torch.sum(args, dim=2)  # [N, n_arity, C]
+        args = args.reshape(N, 1, 1, n_arg, C)
+        p_args = p_args.reshape(N, n_func, n_arity, n_arg, 1)
+        args = p_args * args  # [N, n_func, n_arity, n_arg, C]
+        args = torch.sum(args, dim=3)  # [N, n_func, n_arity, C]
 
         modules = dict(self.named_modules())
         params = dict(self.named_parameters())
@@ -70,7 +70,7 @@ class Module(torch.nn.Module):
             if arity == 0:
                 _out.append(params[k].reshape(1, -1).expand(N, -1))
             else:
-                a = args[:, :arity, :]  # [N, arity, C]
+                a = args[:, i, :arity, :]  # [N, arity, C]
                 a = a.reshape(N, -1)
                 _out.append(modules[k](a))
         # _out: list of [N, C]
@@ -90,14 +90,14 @@ class GtModule(torch.nn.Module):
         """
         p_func: [N, n_func]
         args: [N, n_arg, E]
-        p_args: [N, n_arity, n_arg]
+        p_args: [N, n_func, n_arity, n_arg]
         """
         N, _, E = args.shape
 
         # normalize probs
         p_func = torch.softmax(p_func[:, 1:], dim=1)
         p_func = torch.cat([torch.zeros(N, 1, device=p_func.device), p_func], dim=1)
-        p_args = torch.softmax(p_args, dim=2)
+        p_args = torch.softmax(p_args, dim=3)
 
         out = torch.zeros(N, E)
         for f in self.func_encoder.vocab:
@@ -109,7 +109,7 @@ class GtModule(torch.nn.Module):
             if isinstance(f, str):
                 out = out + p * self._constant(f)[None, :]
             else:
-                out = out + p * self._func(f, args, p_args)
+                out = out + p * self._func(f, args, p_args[:, i, :, :])
         return out
 
     def _constant(self, v: str) -> torch.Tensor:
