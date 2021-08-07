@@ -1,14 +1,14 @@
 import torch
-from app.nn._generator import ValueGenerator
+from app.nn._generator import FunctionGenerator
 from pytorch_pfn_extras.reporting import report
 from tqdm import trange
 
 
-class Values:
-    def __init__(self, g: ValueGenerator, max_value: int) -> None:
+class Functions:
+    def __init__(self, g: FunctionGenerator) -> None:
         self._values = {}
-        for v in range(-max_value, max_value + 1, 1):
-            self._values[v] = torch.rand(g.z_dim)
+        for i in range(g.n_function):
+            self._values[i] = torch.rand(g.z_dim)
         self._g = g
         self._normalize = torch.nn.Identity()
         # self._normalize = torch.nn.LayerNorm([g.z_dim], elementwise_affine=False)
@@ -22,7 +22,7 @@ class Values:
 
         device = list(self._g.parameters())[0].device
 
-        loss_fn = torch.nn.L1Loss(reduction="sum")
+        loss_fn = torch.nn.NLLLoss(reduction="sum")
         optimizer = torch.optim.Adam(self._values.values(), lr=lr)
         for _ in trange(step, desc="optimize value z"):
             optimizer.zero_grad()
@@ -37,7 +37,7 @@ class Values:
             v = v.to(device)
             z = self._normalize(z)
             pred = self._g(z)
-            loss = loss_fn(pred, v)
+            loss = loss_fn(pred, v[:, 0])
             loss.backward()
             optimizer.step()
         report({"values/optimize/loss": loss / len(self._values)})
