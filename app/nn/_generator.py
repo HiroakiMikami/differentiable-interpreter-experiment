@@ -4,9 +4,14 @@ import torch
 class FunctionGenerator(torch.nn.Module):
     def __init__(self, z_dim: int, channel: int, n_function: int) -> None:
         super().__init__()
+        self._z_dim = z_dim
         self.l1 = torch.nn.Linear(z_dim, channel)
         self.l2 = torch.nn.Linear(channel, n_function)
         self.tanh = torch.nn.Tanh()
+
+    @property
+    def z_dim(self) -> int:
+        return self._z_dim
 
     def forward(self, z: torch.Tensor) -> torch.Tensor:
         assert len(z.shape) == 2
@@ -19,9 +24,14 @@ class FunctionGenerator(torch.nn.Module):
 class ValueGenerator(torch.nn.Module):
     def __init__(self, z_dim: int, channel: int) -> None:
         super().__init__()
+        self._z_dim = z_dim
         self.l1 = torch.nn.Linear(z_dim, channel)
         self.l2 = torch.nn.Linear(channel, 1)
         self.tanh = torch.nn.Tanh()
+
+    @property
+    def z_dim(self) -> int:
+        return self._z_dim
 
     def forward(self, z: torch.Tensor) -> torch.Tensor:
         assert len(z.shape) == 2
