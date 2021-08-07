@@ -18,7 +18,7 @@ def test_simple_train() -> None:
     interpreter = Interpreter(8, 16, 16, 2, [1, 2])
 
     interpreter.optimize_constants(100)
-    optimizer = torch.optim.SGD(interpreter.parameters(), lr=1e-3, momentum=0.9)
+    optimizer = torch.optim.Adam(interpreter.parameters(), lr=1e-3)
     for _ in trange(1000, desc="training"):
         interpreter.optimize_constants(10)
         f = torch.randint(0, 2, size=()).item()
@@ -31,6 +31,7 @@ def test_simple_train() -> None:
         else:
             out = arg0 + arg1
 
+        # use specific values to make training easier
         z_f = interpreter.functions[f]
         z_arg0 = interpreter.values[arg0]
         z_arg1 = interpreter.values[arg1]

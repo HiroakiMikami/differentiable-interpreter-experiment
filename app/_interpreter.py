@@ -20,6 +20,8 @@ class Interpreter(torch.nn.Module):
         self.function_generator = FunctionGenerator(z_dim, h_dim, len(function_arities))
         self.values = Values(self.value_generator, max_value)
         self.functions = Functions(self.function_generator)
+        self.max_arity = max(function_arities)
+        self.z_dim = z_dim
 
         function_impls = []
         for arity in function_arities:

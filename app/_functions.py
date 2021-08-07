@@ -1,5 +1,6 @@
 import torch
 from app.nn._generator import FunctionGenerator
+from app.nn._normalize import Normalize
 from pytorch_pfn_extras.reporting import report
 
 
@@ -9,6 +10,7 @@ class Functions:
         for i in range(g.n_function):
             self._values[i] = torch.rand(g.z_dim)
         self._g = g
+        self._normalize = Normalize()
         self._normalize = torch.nn.Identity()
         # self._normalize = torch.nn.LayerNorm([g.z_dim], elementwise_affine=False)
 

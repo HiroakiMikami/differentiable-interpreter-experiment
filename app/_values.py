@@ -1,5 +1,6 @@
 import torch
 from app.nn._generator import ValueGenerator
+from app.nn._normalize import Normalize
 from pytorch_pfn_extras.reporting import report
 
 
@@ -9,8 +10,14 @@ class Values:
         for v in range(-max_value, max_value + 1, 1):
             self._values[v] = torch.rand(g.z_dim)
         self._g = g
-        self._normalize = torch.nn.Identity()
+        self._normalize = Normalize()
+        # self._normalize = torch.nn.Identity()
         # self._normalize = torch.nn.LayerNorm([g.z_dim], elementwise_affine=False)
+        self._max_value = max_value
+
+    @property
+    def max_value(self) -> int:
+        return self._max_value
 
     def __getitem__(self, v: int) -> torch.Tensor:
         return self._normalize(self._values[v][None])[0]
