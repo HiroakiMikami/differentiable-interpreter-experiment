@@ -1,7 +1,6 @@
 import torch
 from app.nn._generator import ValueGenerator
 from pytorch_pfn_extras.reporting import report
-from tqdm import trange
 
 
 class Values:
@@ -24,7 +23,7 @@ class Values:
 
         loss_fn = torch.nn.L1Loss(reduction="sum")
         optimizer = torch.optim.Adam(self._values.values(), lr=lr)
-        for _ in trange(step, desc="optimize value z"):
+        for _ in range(step):
             optimizer.zero_grad()
             z_l = []
             v_l = []

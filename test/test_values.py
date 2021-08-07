@@ -13,6 +13,7 @@ def test_values() -> None:
 
 
 def test_optimize() -> None:
+    torch.manual_seed(0)
     g = ValueGenerator(1, 64)
     values = Values(g, 2)
 
@@ -23,7 +24,7 @@ def test_optimize() -> None:
         values._values.keys()
         x = torch.tensor(list(values._values.keys())).reshape(-1, 1).float()
         z = values._normalize(x)
-        pred = values._g(z)
+        pred = g(z)
         loss = torch.nn.L1Loss()(pred, x)
         loss.backward()
         optimizer.step()

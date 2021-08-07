@@ -1,7 +1,6 @@
 import torch
 from app.nn._generator import FunctionGenerator
 from pytorch_pfn_extras.reporting import report
-from tqdm import trange
 
 
 class Functions:
@@ -24,7 +23,7 @@ class Functions:
 
         loss_fn = torch.nn.NLLLoss(reduction="sum")
         optimizer = torch.optim.Adam(self._values.values(), lr=lr)
-        for _ in trange(step, desc="optimize value z"):
+        for _ in range(step):
             optimizer.zero_grad()
             z_l = []
             v_l = []
@@ -40,7 +39,7 @@ class Functions:
             loss = loss_fn(pred, v[:, 0])
             loss.backward()
             optimizer.step()
-        report({"values/optimize/loss": loss / len(self._values)})
+        report({"functions/optimize/loss": loss / len(self._values)})
 
         for z in self._values.values():
             z.requires_grad_(False)

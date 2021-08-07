@@ -13,6 +13,7 @@ def test_functions() -> None:
 
 
 def test_optimize() -> None:
+    torch.manual_seed(0)
     g = FunctionGenerator(1, 64, 2)
     functions = Functions(g)
 
@@ -23,12 +24,12 @@ def test_optimize() -> None:
         functions._values.keys()
         x = torch.tensor(list(functions._values.keys())).reshape(-1, 1).float()
         z = functions._normalize(x)
-        pred = functions._g(z)
+        pred = g(z)
         loss = torch.nn.L1Loss()(pred, x)
         loss.backward()
         optimizer.step()
 
     functions.optimize(5000, lr=1e-3)
     for v in range(2):
-        prob = torch.softmax(functions._g(functions[v][None]), dim=1)[0]
+        prob = torch.softmax(g(functions[v][None]), dim=1)[0]
         assert prob[v] > 0.5
