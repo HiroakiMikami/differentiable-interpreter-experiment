@@ -85,7 +85,6 @@ def test_simple_train() -> None:
         assert torch.abs(out - 0) < 0.5, f"actual={out.item()}, expected=add(-1, 1)=0"
 
 
-
 def test_simple_infer() -> None:
     # func[0] = id, func[1] = add
     torch.manual_seed(0)
@@ -109,7 +108,7 @@ def test_simple_infer() -> None:
             1e-3,
             tmpdir,
         )
-    
+
     z_f = normalize(torch.normal(mean=torch.zeros(1, 8), std=torch.ones(1, 8)))
     z_c = normalize(torch.normal(mean=torch.zeros(1, 8), std=torch.ones(1, 8)))
     z_f.requires_grad_(True)
