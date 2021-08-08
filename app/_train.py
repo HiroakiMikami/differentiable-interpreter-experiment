@@ -104,7 +104,7 @@ def train_extractor(
             vloss = sum([
                 loss_fn(p_arg, arg) for p_arg, arg in zip(p_args, args)
             ]) + loss_fn(p_outs, outs)
-            vloss = vloss / (batch_size * (interpreter.max_arity + 1))
+            vloss = vloss.sum() / (batch_size * (interpreter.max_arity + 1))
 
             loss = eloss + floss + vloss
             loss.backward()

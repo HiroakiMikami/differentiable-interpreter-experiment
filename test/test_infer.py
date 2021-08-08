@@ -1,6 +1,6 @@
 import torch
 import tempfile
-from app import create_program, execute, Interpreter, train_extractor, train
+from app import create_program, execute, Interpreter, train_extractor, train, infer
 
 
 def test_create_program() -> None:
@@ -61,28 +61,32 @@ def test_simple_infer() -> None:
         # expected: id(add(-2, -1)) = -3
         optimizer = torch.optim.Adam(program.z_fs + program.logit_args, lr=1e-4)
         out = torch.tensor([[-2.0]])
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            infer(
+                program,
+                interpreter,
+                [[-1, 0, 1, -2]],
+                [-2],
+                1000,
+                tmpdir,
+                lr=1e-4,
+            )
+
+        """
         for _ in range(1000):
             optimizer.zero_grad()
             pred = execute(program, [-1, 0, 1, -2], interpreter)
             loss = torch.nn.L1Loss()(pred, out)
             loss.backward()
             optimizer.step()
+        """
 
-        f0 = int(torch.round(interpreter.function_extractor.decode(program.z_fs[0])))
-        f0 = min(max(0, f0), len(functions))
-        f1 = int(torch.round(interpreter.function_extractor.decode(program.z_fs[1])))
-        f1 = min(max(0, f1), len(functions))
-
-        arg_idx = []
-        for logit_arg in program.logit_args:
-            # (arity, var)
-            _, arg_id = logit_arg.max(dim=1)
-            arg_idx.append(arg_id)
-
+        decoded = program.decode(interpreter, 2)
         env = [-1, 0, 1, -2]
         for i in range(2):
-            f = [f0, f1][i]
-            arg_id = arg_idx[i]
+            f = decoded.func_ids[i]
+            arg_id = decoded.arg_idx[i]
             args = [env[int(id)] for id in arg_id]
             out = functions[f](args)
             env.append(out)
