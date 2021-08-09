@@ -62,6 +62,7 @@ def execute(
     program: Program,
     inputs: List[int],
     interpreter: Interpreter,
+    use_sampling: bool = False,
 ) -> torch.Tensor:
     z_inputs = [
         interpreter.value_extractor.encode(torch.tensor([[float(i)]]))
@@ -73,7 +74,15 @@ def execute(
     for i, z_f in enumerate(program.z_fs):
         logit_arg = program.logit_args[i]  # (n_arity, n_var)
         assert logit_arg.shape[1] == env.shape[0]
-        prob_arg = torch.softmax(logit_arg, dim=1)  # (arity, n_var)
+
+        if use_sampling:
+            prob_arg = torch.zeros_like(logit_arg)
+            for i, logit in enumerate(logit_arg):  # (n_var,)
+                c = torch.distributions.Categorical(logits=logit)
+                j = c.sample()
+                prob_arg[i, j] = 1.0
+        else:
+            prob_arg = torch.softmax(logit_arg, dim=1)  # (arity, n_var)
 
         z_args = env[:, ...] * prob_arg[:, :, None, None]  # (arity, n_var, 1, z_dim)
         z_args = z_args.sum(dim=1)  # (arity, 1, z_dim)
@@ -94,12 +103,10 @@ def infer(
     lr: float = 1e-3,
 ) -> None:
     program.requires_grad_(True)
-    optimizer = torch.optim.Adam(
-        program.z_fs + program.logit_args,
-        lr=lr
-    )
+    f_optimizer = torch.optim.Adam(program.z_fs, lr=lr)
+    logit_optimizer = torch.optim.Adam(program.logit_args, lr=lr)
     manager = ppe.training.ExtensionsManager(
-        {}, optimizer, step,
+        {}, {"z_f": f_optimizer, "logit_args": logit_optimizer}, step,
         out_dir=out_dir,
         extensions=[],
         iters_per_epoch=1,
@@ -132,22 +139,31 @@ def infer(
 
     while not manager.stop_trigger:
         with manager.run_iteration():
-            optimizer.zero_grad()
+            def _forward(use_sampling: bool):
+                loss = 0
+                for i, o in zip(inputs, outputs):
+                    o = torch.tensor([[o]]).float()
+                    p = execute(
+                        program,
+                        i,
+                        interpreter,
+                        use_sampling=use_sampling,
+                    )
+                    loss += torch.nn.L1Loss()(p, o)
+                loss = loss / len(inputs)
+                with torch.no_grad():
+                    reporting.report({
+                        "loss": loss
+                    })
+                return loss
 
-            loss = 0
-            for i, o in zip(inputs, outputs):
-                o = torch.tensor([[o]]).float()
-                p = execute(
-                    program,
-                    i,
-                    interpreter,
-                )
-                loss += torch.nn.L1Loss()(p, o)
-            loss = loss / len(inputs)
+            logit_optimizer.zero_grad()
+            loss = _forward(False)
             loss.backward()
-            optimizer.step()
+            logit_optimizer.step()
 
-            with torch.no_grad():
-                reporting.report({
-                    "loss": loss
-                })
+            f_optimizer.zero_grad()
+            loss = _forward(True)
+            loss.backward()
+            f_optimizer.step()
+
